@@ -1,0 +1,641 @@
+-- FreeFem++ v4.700001 (Sat Oct 17 12:48:33 CEST 2020 - git v4.7-64-g08041365)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue 
+    1 : ////////////////////////////////////////////////
+    2 : // Compliance Optimization                    //
+    3 : // by the boundary variation method           //
+    4 : // Copyright O.Pantz, G. Allaire (2005)       //
+    5 : ////////////////////////////////////////////////
+    6 : 
+    7 : // Optimization Parameters 
+    8 : int niter=60;			//Number of iterations
+    9 : real errelas=0.01;		//Error for the resolution of the variational problems
+   10 : real metricmsh=5.;		//Metric used for the coarse mesh: Bigger=finer mesh
+   11 : real initialstep=0.2;		//Initial step
+   12 : real maxstep=-1.;		//Maximum step (<0 => no limit)
+   13 : real lagrangestep=3.;		//Updating step of the Lagrange multiplier associated to the Volume's constraint
+   14 : bool tocontinue=false;		//false=start a new computation, true=continue a previous computation
+   15 : string backupname="output";	//Name under which the results are stored
+   16 : int nsave=1;			//Number of iterations to be saved
+   17 : real volume0=95.;		//=0 Constant Volume during the iterations, >0 Target Volume, <0 No Volume's constraint
+   18 : 
+   19 : int np =10;
+   20 : // construction of the initial mesh
+   21 : 	mesh Sh,Th,Shprev,Thprev;
+   22 : 	//Definition of the boundary labels
+   23 : 	int neumann=1; int dirichlet=2;
+   24 : 	int free=3;
+   25 : 
+   26 : 
+   27 : 	int WALL = 1;
+   28 : 	int LOAD = 2;
+   29 : 	int FREE = 3;
+   30 : //this is case 1
+   31 : 	
+   32 :  // border L11(t = 0.0, 0.5){x = t; y = 0.0; label = FREE;}
+   33 :  //    border L21(t = 0.0, 0.45){x = 0.5; y = t; label = FREE;}
+   34 :  //    border L22(t = 0.45, 0.55){x = 0.5; y = t; label = LOAD;}
+   35 :  //    border L23(t = 0.55, 1.0){x = 0.5; y = t; label = FREE;}
+   36 :  //    border L31(t = 0.5, 0){x = t; y = 1.0; label = FREE;}
+   37 :  //    border L41(t = 1.0, 0.9){x = 0.0; y = t; label = WALL;}
+   38 :  //    border L42(t = 0.9, 0.1){x = 0.0; y = t; label = FREE;}
+   39 :  //    border L43(t = 0.1, 0.0){x = 0.0; y = t; label = WALL;}
+   40 : 
+   41 :  //    Sh = buildmesh(L11(5 * np) + L21(5 * np) + L22(1 * np) + L23(5 * np) + L31(5 * np) + L41(1 * np) + L42(8 * np) + L43(1 * np));
+   42 : 
+   43 : 
+   44 : //this is case 2
+   45 : 
+   46 : 	// real r = 0.15;                                                                    
+   47 : 
+   48 :  //    border L11(t = -1.0, 1.0){x = t; y = 0.0; label = FREE;}
+   49 :  //    border L21(t = 0.0, 0.45){x = 1.0; y = t; label = FREE;}
+   50 :  //    border L22(t = 0.45, 0.55){x = 1.0; y = t; label = LOAD;}
+   51 :  //    border L23(t = 0.55, 1.0){x = 1.0; y = t; label = FREE;}
+   52 :  //    border L31(t = 1.0, -1.0){x = t; y = 1.0; label = FREE;}
+   53 :  //    border L41(t = 1.0, 0.9){x = -1.0; y = t; label = WALL;}
+   54 :  //    border L42(t = 0.9, 0.1){x = -1.0; y = t; label = FREE;}
+   55 :  //    border L43(t = 0.1, 0.0){x = -1.0; y = t; label = WALL;}
+   56 : 
+   57 :     
+   58 :  //    border C11(t = 0, 2 * pi){x = -0.6 + r * cos(t); y = 0.22 + r * sin(t); label = FREE;}
+   59 :  //    border C12(t = 0, 2 * pi){x = 0.2 + r * cos(t); y = 0.22 + r * sin(t); label = FREE;}
+   60 :  //    border C21(t = 0, 2 * pi){x = -0.2 + r * cos(t); y = 0.5 + r * sin(t); label = FREE;}
+   61 :  //    border C22(t = 0, 2 * pi){x = 0.6 + r * cos(t); y = 0.5 + r * sin(t); label = FREE;}
+   62 :  //    border C31(t = 0, 2 * pi){x = -0.6 + r * cos(t); y = 0.78 + r * sin(t); label = FREE;}
+   63 :  //    border C32(t = 0, 2 * pi){x = 0.2 + r * cos(t); y = 0.78 + r * sin(t); label = FREE;}
+   64 : 
+   65 :  //    Sh = buildmesh(L11(20 * np) + L21(5 * np) + L22(1 * np) + L23(5 * np) + L31(20 * np) + L41(1 * np) + L42(8 * np) + L43(1 * np)
+   66 :  //                    + C11(-10 * np) + C12(-10 * np)  + C21(-10 * np) + C22(-10 * np) + C31(-10 * np) + C32(-10 * np));
+   67 : 
+   68 : 
+   69 : //this is case 3
+   70 : 
+   71 : 	 real r = 0.2;                                                 
+   72 : 
+   73 :     border L11(t = 0.0, 1.0){x = t; y = 0.0; label = FREE;}
+   74 :     border L21(t = 0.0, 0.2){x = 1.0; y = t; label = LOAD;}
+   75 :     border L22(t = 0.2, 0.8){x = 1.0; y = t; label = FREE;}
+   76 :     border L23(t = 0.8, 1.0){x = 1.0; y = t; label = LOAD;}
+   77 :     border L31(t = 1.0, 0.0){x = t; y = 1.0; label = FREE;}
+   78 :     border L41(t = 1.0, 0.95){x = 0.0; y = t; label = WALL;}
+   79 :     border L42(t = 0.95, 0.05){x = 0.0; y = t; label = FREE;}
+   80 :     border L43(t = 0.05, 0.0){x = 0.0; y = t; label = WALL;}
+   81 : 
+   82 :     
+   83 :     border C11(t = 0, 2 * pi){x = 0.5 + r * cos(t); y = 0.25 + r * sin(t); label = FREE;}
+   84 :     border C31(t = 0, 2 * pi){x = 0.5 + r * cos(t); y = 0.75 + r * sin(t); label = FREE;}
+   85 : 
+   86 :     Sh = buildmesh(L11(10 * np) + L21(2 * np) + L22(6 * np) + L23(2 * np) + L31(10 * np) + L41(1 * np) + L42(9 * np) + L43(1 * np)
+   87 :         + C11(-15 * np) + C31(-15 * np)
+   88 :         );
+   89 : 
+   90 : 
+   91 : //this is case 4:
+   92 : 
+   93 : 	 // real r = 0.25;
+   94 : 
+   95 :   //   border L11(t = -1.0, -0.9){x = t; y = 0; label = FREE;}
+   96 :   //   border L12(t = -0.9, -0.2){x = t; y = 0; label = FREE;}
+   97 :   //   border L13(t = -0.2, 0.2){x = t; y = 0; label = FREE;}
+   98 :   //   border L14(t = 0.2, 0.9){x = t; y = 0; label = FREE;}
+   99 :   //   border L15(t = 0.9, 1.0){x = t; y = 0; label = FREE;}
+  100 :     
+  101 :   //   border L21(t = 0, 1.2){x = 1.0; y = t; label = FREE;}
+  102 :   //   border L22(t = 1.0, -1.0){x = t; y = 1.2; label = FREE;}
+  103 :   //   border L23(t = 1.2, 0){x = -1.0; y = t; label = FREE;}
+  104 :     
+  105 :   //   border C10(t = 0, 2 * pi){x = -0.6 + r * cos(t); y = 0.4 + r * sin(t); label = FREE;}
+  106 :   //   border C11(t = 0, 2 * pi){x = r * cos(t); y = 0.8 + r * sin(t); label = FREE;}
+  107 :   //   border C12(t = 0, 2 * pi){x = 0.6 + r * cos(t); y = 0.4 + r * sin(t); label = FREE;}
+  108 : 
+  109 :   //   Sh = buildmesh(L11(1 * np) + L12(7 * np) + L13(4 * np) + L14(7 * np) + L15(1 * np) + L21(12 * np) + L22(20 * np) + L23(12 * np) 
+  110 :   //       + C10(-15 * np) + C11(-15 * np) + C12(-15 * np) 
+  111 :   //       );
+  112 : 
+  113 : 
+  114 : //this is case 5
+  115 : // real r = 0.05;
+  116 : 
+  117 : //     border L11(t = 0.4, -0.4){x = t; y = 1.2; label = FREE;}
+  118 : //     border L21(t = 1.2, 0.8){x = -0.4; y = t; label = FREE;}
+  119 : //     border L31(t = -0.4, -0.35){x = t; y = 0.8; label = LOAD;}
+  120 : //     border L32(t = -0.35, -0.2){x = t; y = 0.8; label = FREE;}
+  121 : //     border L41(t = 0.8, 0.0){x = -0.2; y = t; label = FREE;}
+  122 : //     border L51(t = -0.2, -0.15){x = t; y = 0.0; label = WALL;}
+  123 : //     border L52(t = -0.15, 0.15){x = t; y = 0.0; label = FREE;}
+  124 : //     border L53(t = 0.15, 0.2){x = t; y = 0.0; label = WALL;}
+  125 : //     border L42(t = 0.0, 0.8){x = 0.2; y = t; label = FREE;}
+  126 : //     border L33(t = 0.2, 0.35){x = t; y = 0.8; label = FREE;}
+  127 : //     border L34(t = 0.35, 0.4){x = t; y = 0.8; label = LOAD;}
+  128 : //     border L22(t = 0.8, 1.2){x = 0.4; y = t; label = FREE;}
+  129 : 
+  130 : //     border C1(t = 0, 2 * pi){x = -0.25 + r * cos(t); y = 1.0 + r * sin(t); label = FREE;}
+  131 : //     border C2(t = 0, 2 * pi){x = r * cos(t); y = 1.0 + r * sin(t); label = FREE;}
+  132 : //     border C3(t = 0, 2 * pi){x = 0.25 + r * cos(t); y = 1.0 + r * sin(t); label = FREE;}
+  133 : 
+  134 : //     Sh = buildmesh(L11(8 * np) + L21(4 * np) + L31(1 * np) + L32(2 * np) + L41(8 * np) + L51(np) + L52(3 * np) + L53(1 * np) 
+  135 : //                     + L42(8 * np) + L33(2 * np) + L34(1 * np) + L22(4 * np) + C1(-7 * np) + C2(-7 * np) + C3(-7 * np));
+  136 : 
+  137 : 
+  138 : 
+  139 : // 	Th=Sh;
+  140 : // 	Thprev=Th;
+  141 : 
+  142 : 	// cut function used to regularize the gradient shape near singularities
+  143 : 	// func cut=1-(x>19.5)*(abs(y)<1.5)-(x<0.5)*(y>1.5)*(y<4.5)-(x<0.5)*(y<-1.5)*(y>-4.5);
+  144 : 
+  145 : 
+  146 : 	func cut=(y < 0.5) ;
+  147 : 
+  148 : // Material parameters
+  149 : 	real E=15.;				//Young Modulus (always positif)
+  150 : 	real nu=0.35;				//Poisson ratio (between -1 and 1/2)
+  151 : 	real lambda=E*nu/((1.+nu)*(1.-2.*nu));	//Lame Moduli
+  152 : 	real mu=E/(2.*(1.+nu));
+  153 : 
+  154 : //Applied Loads
+  155 : 	func g1=50; func g2=50;
+  156 : 
+  157 : //Definition of the variables and intialization
+  158 : 	//Finite elements spaces on the finer mesh Sh
+  159 : 		fespace Wh(Sh,P1);  		
+  160 : 		fespace WSh(Sh,[P2,P2]);
+  161 : 	//Finite elements spaces on the coarse mesh Th
+  162 : 		fespace WTh(Th,[P2,P2]);	
+  163 : 		
+  164 : 	Wh gradient; 			//Gradient
+  165 : 	WSh [d1,d2];			//extension field
+  166 : 	WSh [theta1,theta2];		//test functions for the extension field
+  167 : 	WSh [u1,u2],[v1,v2];		//Displacement and Test functions
+  168 : 
+  169 : 	//Interpolated Finite elements on the coarse mesh
+  170 : 	WTh [D1,D2],[Dprev1,Dprev2]; 
+  171 : 	WTh [U1,U2],[Uprev1,Uprev2];
+  172 : 
+  173 : 	int nsaved=0;			//Initialization counter of the back-up copies
+  174 : 	int nsave0=100;			//Current number of back-up copies
+  175 : 	real compliance;		//Compliance
+  176 : 	real volume;
+ *** Warning  The identifier volume hide a Global identifier  
+			//Volume of the current shape
+  177 : 	real perimeter;			//Perimeter of the optimized boundary
+  178 : 	string caption;			//Caption for graphic outputs
+  179 : 	real GradNorm;			//Gradient Norm
+  180 : 	real GradProduct;		//Scalar product between the current gradient and the previous one
+  181 : 	bool rollback=false;		//Did we roll back ?
+  182 : 	real actualstep;		//Actual step size
+  183 : 	real lagrange;			//Lagrange Multiplier associated to the Volume constraint
+  184 : 	real[int] isoval(20);		//isovalue used for graphic outputs
+  185 : 
+  186 : 	int constrained=1;
+  187 : 	if (volume0<0) {constrained=0;};
+  188 : 
+  189 : /////////////////////////
+  190 : // Elasticity Problem  //
+  191 : /////////////////////////
+  192 : 	problem elasticity([u1,u2],[v1,v2]) =
+  193 : 		int2d(Sh)(
+  194 :         		2.*mu*(dx(u1)*dx(v1)+dy(u2)*dy(v2)+((dx(u2)+dy(u1))*(dx(v2)+dy(v1)))/2.)
+  195 :               		+lambda*(dx(u1)+dy(u2))*(dx(v1)+dy(v2)))
+  196 : 		-int1d(Sh,neumann)(g1*v1+g2*v2)	           
+  197 :     	+on(FREE,u1=0,u2=0);
+  198 : 
+  199 : ////////////////////////////////////////
+  200 : // Expression of the shape's Gradient //
+  201 : ////////////////////////////////////////
+  202 : 	macro gradientexp()
+  203 # 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 # //
+  205 : 
+  206 : ///////////////////////
+  207 : // Extension Problem //
+  208 : ///////////////////////
+  209 : //  H1 scalar product between vector-valued functions
+  210 : 	macro prodscal(t1,t2,p1,p2)
+  211 # 		dx(t1)*dx(p1)+dy(t1)*dy(p1)+dx(t2)*dx(p2)+dy(t2)*dy(p2)+t1*p1+t2*p2
+  212 #  )  //
+  213 : 	problem extension([d1,d2],[theta1,theta2]) =
+  214 : 		int2d(Sh)(prodscal(d1,d2,theta1,theta2)
+  211 @ 		
+  212 @ 
+  211 @ 		dx(d1)*dx(theta1)+dy(d1)*dy(theta1)+dx(d2)*dx(theta2)+dy(d2)*dy(theta2)+d1*theta1+d2*theta2
+  212 @ )
+  215 : 		+int1d(Sh,free) ((theta1*N.x+theta2*N.y)*(gradientexp
+  203 @ 	
+  204 @ 
+  203 @ 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 @  + lagrange*constrained)*cut)
+  216 : 	  +on(WALL,d1=0,d2=0);
+  217 : 
+  218 : //////////////////////////////
+  219 : //      Initialization      //
+  220 : //////////////////////////////
+  221 : int iter,iter0;
+  222 : string  backupnameNb;
+  223 : if(!tocontinue){
+  224 : 	iter0=1;
+  225 : 	if (volume0==0) {volume0=int1d(Sh)(x*N.x+y*N.y)/2;}	// Computation of the initial Volume
+  226 : 	elasticity;						// Solving the State Equation
+  227 : 	compliance=int1d(Sh,neumann)(g1*u1+g2*u2);		// Initial Compliance
+  228 : 	gradient=-(gradientexp
+  203 @ 	
+  204 @ 
+  203 @ 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 @ );				// Computation of the shape derivative
+  229 : 
+  230 : 	//Evaluation of the Lagrande Multiplier associated to the Volume constraint
+  231 : 	lagrange=int1d(Sh,free)(gradient*cut)/int1d(Sh,free)(cut);
+  232 : 	gradient=(gradient-lagrange*constrained)*cut;
+  233 : 
+  234 : 	//Mesh Adaptation
+  235 : 		Th=Sh;
+  236 : 		[U1,U2]=[u1,u2];   //interpolation of u on the coarse mesh Th
+  237 : 		[Uprev1,Uprev2]=[0,0]; Uprev1[]=U1[]; Uprev2[]=U2[];
+  238 : 		Sh=adaptmesh (Th,Uprev1,Uprev2,err=errelas);
+  239 : 		actualstep=initialstep;			//Initialization of the initial step
+  240 : 
+  241 : 	//We save the intial shape
+  242 : 	if (nsave!=0) {
+  243 : 		//isovalue for graphic output
+  244 : 			real gmax=gradient[].max;
+  245 : 			real gmin=gradient[].min;
+  246 : 			for (int j=0;j<isoval.n;j++) isoval[j]=gmin+(gmax-gmin)/isoval.n*j;
+  247 : 		caption="Initial shape, Compliance "+compliance+", Volume "+volume0;
+  248 : 		backupnameNb=backupname+nsaved;
+  249 : 		plot(gradient,fill=1,value=1,cmm=caption,viso=isoval,ps= "output/"+backupnameNb+".eps");};}
+  250 : else {
+  251 : // We recover the datas of a previous computation
+  252 : 	// Updating of the meshs if we continue a previous computation
+  253 : 		Sh=readmesh(backupname+".msh");
+  254 : 		Th=readmesh(backupname+"-geo.msh");
+  255 : 		Shprev=readmesh(backupname+"-prev.msh");
+  256 : 		Thprev=readmesh(backupname+"-geo-prev.msh");
+  257 : 	ifstream f(backupname+".txt");
+  258 : 	if (volume0==0) {f >>volume0;} else {real next; f >>next;};
+  259 : 	f >>lagrange;		//Lagrange Multiplier
+  260 : 	f >>actualstep;		//Actual step size
+  261 : 	f >>rollback;		//Did we roll back ?
+  262 : 	f >>iter0;		//iteration de départ
+  263 : 	f >>nsave0;		//Number of previous back-up copies
+  264 : 	f >>isoval;
+  265 : 	f >>Dprev1[];f>>Dprev2[];//Previous extenstion fields
+  266 : 	nsaved=nsave0; 
+  267 : 	nsave0=nsave0+1;};
+  268 : 
+  269 : /////////////////////////////////////
+  270 : // Initialization of the Algorithm //
+  271 : /////////////////////////////////////
+  272 : 	elasticity;					//Solving the state equation
+  273 : 	compliance=int1d(Sh,neumann)(g1*u1+g2*u2);	//Initial compliance
+  274 : 	gradient=-(gradientexp
+  203 @ 	
+  204 @ 
+  203 @ 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 @ );			//Computation of the shape derivative
+  275 : 	//Evaluation of the Lagrange Multiplier associated to the Volume constraint
+  276 : 	lagrange=int1d(Sh,free)(gradient*cut)/int1d(Sh,free)(cut);
+  277 : 	gradient=(gradient-lagrange*constrained)*cut;
+  278 : 
+  279 : ///////////////////////////////
+  280 : //     Optimization Loop     //
+  281 : ///////////////////////////////
+  282 : for (iter=iter0;iter< niter+iter0;iter=iter+1){
+  283 : 	cout <<"Iteration " <<iter <<" ----------------------------------------" <<endl;
+  284 : 
+  285 : 	////////////////////////////
+  286 : 	// Gradient's Computation //
+  287 : 	////////////////////////////
+  288 : 	elasticity;
+  289 : 	compliance=int1d(Sh,neumann)(g1*u1+g2*u2);
+  290 : 	gradient=-(gradientexp
+  203 @ 	
+  204 @ 
+  203 @ 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 @ )*cut;
+  291 : 	cout<<"Compliance :"<<compliance<<"-------------------------------------"<<endl;
+  292 : 
+  293 : 	[U1,U2]=[u1,u2];  //interpolation of u on the coarse mesh
+  294 : 
+  295 : 	//Update of the lagrange multiplier
+  296 : 		volume=int1d(Sh)(x*N.x+y*N.y)/2;
+  297 : 		perimeter=int1d(Sh,free)(cut);
+  298 : 		lagrange=0.5*lagrange+0.5*int1d(Sh,free)(gradient)/perimeter
+  299 : 		+lagrangestep*(volume-volume0)/volume0;
+  300 : 	gradient=gradient-lagrange*constrained*cut;
+  301 : 	
+  302 : 	/////////////////////
+  303 : 	// Graphic Outputs //
+  304 : 	/////////////////////
+  305 : 	//isovalues
+  306 : 		real gmax=gradient[].max;
+  307 : 		for (int j=0;j<isoval.n;j++) 
+  308 : 		isoval[j]=isoval[j]*(0.7*isoval[isoval.n-1]+0.3*gmax)/isoval[isoval.n-1];
+  309 : 	caption="Iteration "+iter+", Compliance="+compliance+", Volume="+volume;
+  310 : 	backupnameNb="output/"+backupname+nsaved+".eps";
+  311 : 	plot(gradient,fill=1,value=1,cmm=caption,viso=isoval);
+  312 : 	
+  313 : 	/////////////////////////
+  314 : 	// Back-up Iterations  //
+  315 : 	/////////////////////////
+  316 : 	if ((nsaved-nsave0)*niter<(iter-iter0-1)*nsave) {
+  317 : 	nsaved=nsaved+1;
+  318 : 	caption="Iteration "+iter+", Compliance ="+compliance+", Volume="+volume;
+  319 : 	backupnameNb="output/"+backupname+nsaved+".eps";
+  320 : 	plot(gradient,fill=1,value=1,cmm=caption,viso=isoval,ps=backupnameNb);
+  321 : 	savemesh(Sh,backupname+".msh");};
+  322 : 
+  323 : 	///////////////////////////////
+  324 : 	// Modification of the shape //
+  325 : 	///////////////////////////////
+  326 : 	extension;		//Computation of the field [d1,d2]
+  327 : 	[D1,D2]=[d1,d2];	//Interpolation on the coarse mesh
+  328 : 
+  329 : 	////////////////////////////////////
+  330 : 	// Updating the step              //
+  331 : 	////////////////////////////////////
+  332 : 	GradNorm=int2d(Th)(prodscal(D1,D2,D1,D2)
+  211 @ 		
+  212 @ 
+  211 @ 		dx(D1)*dx(D1)+dy(D1)*dy(D1)+dx(D2)*dx(D2)+dy(D2)*dy(D2)+D1*D1+D2*D2
+  212 @ );
+  333 : 	GradProduct=int2d(Th)(prodscal(D1,D2,Dprev1,Dprev2)
+  211 @ 		
+  212 @ 
+  211 @ 		dx(D1)*dx(Dprev1)+dy(D1)*dy(Dprev1)+dx(D2)*dx(Dprev2)+dy(D2)*dy(Dprev2)+D1*Dprev1+D2*Dprev2
+  212 @ );
+  334 : 	if ((GradProduct<0.)&(!rollback)) {
+  335 : 		actualstep=actualstep*GradNorm/(GradNorm-GradProduct)/4.; 
+  336 :                 cout<<"Step too big: we step back !!!"<<endl; Th=Thprev; Sh=Shprev; rollback=true;}
+  337 : 	else 
+  338 : 		rollback=false;
+  339 : 	if ((GradProduct>0.)&(GradProduct<(GradNorm/2.))){
+  340 : 		actualstep=actualstep*2.*GradNorm/(2.*GradNorm-GradProduct); 
+  341 :                 cout<<"We increase the step size"<<endl;};
+  342 : 	if (GradProduct>(GradNorm/2.)){
+  343 : 		actualstep=actualstep*4./3.;
+  344 : 		cout<<"We increase the step size"<<endl;};
+  345 : 	if(maxstep>0.) 
+  346 : 		actualstep=min(actualstep,maxstep);
+  347 : 	Thprev=Th;	//We keep a copy of the meshs (in case of backup at the next loop's step)
+  348 : 	Shprev=Sh;
+  349 : 
+  350 : 	//////////////////////////////////
+  351 : 	// We move the coarse mesh Th   //
+  352 : 	//////////////////////////////////
+  353 : 	if (!rollback){
+  354 : 		real aa,minaire=checkmovemesh (Th,[x,y])/10000.;
+  355 : 		while (minaire > (aa=checkmovemesh(Th,[x+actualstep*D1,y+actualstep*D2])) ){
+  356 :   			cout << " problem reversed triangle  => actualstep= actual
+  ... : step/2. "<<endl; 
+  357 : 			actualstep= actualstep/2.;
+  358 : 					}
+  359 : 		Th = movemesh (Th,[x+actualstep*D1,y+actualstep*D2]);
+  360 : 		cout<<"Mesh moved"<<endl;
+  361 : 		cout<<"Actual Step "<<actualstep<<"------------------------------------"<<endl;
+  362 : 		[Dprev1,Dprev2]=[0,0];
+  363 : 		Dprev1[]=D1[];Dprev2[]=D2[];
+  364 : 		[Uprev1,Uprev2]=[0,0]; Uprev1[]=U1[]; Uprev2[]=U2[]; //Interpolation of u on the new mesh Th
+  365 : 		};
+  366 : 
+  367 : 	//////////////////////
+  368 : 	// Mesh Adaptation  //
+  369 : 	//////////////////////
+  370 : 	if (rollback){Sh=Shprev; } 		//We step back
+  371 : 	else {
+  372 : 		cout<<"Mesh adaptation of Sh"<<endl;
+  373 : 		Sh=adaptmesh(Th,Uprev1,Uprev2,[Dprev1,Dprev2],err=errelas);
+  374 : 		plot(Sh,wait=0);
+  375 : 		cout<<"Mesh adaptation of the coarse mesh Th"<<endl;
+  376 : 		Th=adaptmesh(Sh,metricmsh,0,metricmsh,IsMetric=1,ratio=0,omega=200,splitpbedge=1,hmin=0.05,abserror=1); }
+  377 : 	cout<<"Mesh adaptation done"<<endl;
+  378 : };
+  379 : ///// END OF THE OPTIMIZATION LOOP /////
+  380 : 
+  381 : // Back-up    ///////////////////////////////////////////////
+  382 : if (nsave!=0) {
+  383 : 	//We save the meshes
+  384 : 		savemesh(Sh,backupname+".msh");
+  385 : 		savemesh(Shprev,backupname+"-prev.msh");
+  386 : 		savemesh(Th,backupname+"-geo.msh");
+  387 : 		savemesh(Th,backupname+"-geo-prev.msh");
+  388 : 	//We save all variables
+  389 : 		{ofstream f(backupname+".txt");
+  390 : 		f << volume0<<"\n";	//Initial Volume
+  391 : 		f <<lagrange<<"\n";	//Lagrange Multiplier
+  392 : 		f <<actualstep<<"\n";	//Actual step
+  393 : 		f <<rollback<<"\n";	//boolean variable
+  394 : 		f <<iter<<"\n";		//Current Iteration
+  395 : 		f <<nsaved+1<<"\n";	//Number of back-up done
+  396 : 		f <<isoval<<"\n";
+  397 : 		[Dprev1,Dprev2]=[Dprev1,Dprev2];
+  398 : 		f <<Dprev1[]<<endl;f<<Dprev2[]<<endl;};
+  399 : 	nsaved=nsaved+1;
+  400 : 	elasticity;
+  401 : 	gradient=-(gradientexp
+  203 @ 	
+  204 @ 
+  203 @ 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 @ );
+  402 : 	compliance=int1d(Sh,neumann)(g1*u1+g2*u2);
+  403 : 	cout<<"Compliance : "<<compliance<<"-------------------------------------"<<endl;
+  404 : 	gradient=gradient*cut;
+  405 : 	volume=int2d(Sh)(1.);
+  406 : 	perimeter=int1d(Sh,free)(cut);
+  407 : 	lagrange=0.5*lagrange+0.5*int1d(Sh,free)(gradient)/perimeter+lagrangestep*(volume-volume0)/volume0;
+  408 : 	gradient=gradient-lagrange*constrained*cut;
+  409 : 	//Graphic output of the gradient
+  410 : 		caption="Iteration "+iter+", Compliance ="+compliance+", Volume="+volume;
+  411 : 		backupnameNb=backupname+nsaved+".eps";
+  412 : 		plot(gradient,fill=1,value=0,cmm=caption,viso=isoval,ps="output/"+ backupnameNb);
+  413 : };
+  414 :  sizestack + 1024 =11240  ( 10216 )
+
+  --  mesh:  Nb of Triangles =  19560, Nb of Vertices 10134
+  -- Solve : 
+          min -0.0126633  max 0.128044
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 2814 , h  min 0.000862216 , h max 0.2
+     area =  0.751573 , M area = 1212.27 , M area/( |Khat| nt) 0.994885
+     infiny-regularity:  min 0.0850289  max 2.18238
+     anisomax  6.26006, beta max = 3.62483 min  0.754668
+  --  mesh:  Nb of Triangles =   2814, Nb of Vertices 1525
+  -- Solve : 
+          min -0.0127319  max 0.129616
+Iteration 1 ----------------------------------------
+  -- Solve : 
+          min -0.0127319  max 0.129616
+Compliance :0.848768-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -4.43477  max 6.246
+ problem reversed triangle  => actualstep= actualstep/2. 
+ problem reversed triangle  => actualstep= actualstep/2. 
+ problem reversed triangle  => actualstep= actualstep/2. 
+ problem reversed triangle  => actualstep= actualstep/2. 
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.00625------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 3226 , h  min 0.000576462 , h max 0.106497
+     area =  0.734601 , M area = 1424.06 , M area/( |Khat| nt) 1.01944
+     infiny-regularity:  min 0.293072  max 2.09304
+     anisomax  4.15932, beta max = 1.84719 min  0.785127
+  --  mesh:  Nb of Triangles =   3226, Nb of Vertices 1761
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 236 , h  min 0.00468276 , h max 0.353765
+     area =  0.736376 , M area = 14.9235 , M area/( |Khat| nt) 0.146035
+     infiny-regularity:  min 0.0065099  max 8.33376
+     anisomax  12.9291, beta max = 43.8033 min  0.560136
+  --  mesh:  Nb of Triangles =    236, Nb of Vertices 155
+Mesh adaptation done
+Iteration 2 ----------------------------------------
+  -- Solve : 
+          min -0.0125577  max 0.136998
+Compliance :0.889424-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -4.15427  max 5.74045
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.00416667------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 1178 , h  min 0.000848635 , h max 0.136447
+     area =  0.72741 , M area = 523.727 , M area/( |Khat| nt) 1.02674
+     infiny-regularity:  min 0.270518  max 3.63761
+     anisomax  7.15176, beta max = 1.35358 min  0.584438
+  --  mesh:  Nb of Triangles =   1178, Nb of Vertices 673
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 236 , h  min 0.00758418 , h max 0.333242
+     area =  0.728374 , M area = 6.86853 , M area/( |Khat| nt) 0.0672127
+     infiny-regularity:  min 0.0152656  max 6.94152
+     anisomax  12.9879, beta max = 30.7557 min  0.830017
+  --  mesh:  Nb of Triangles =    236, Nb of Vertices 155
+Mesh adaptation done
+Iteration 3 ----------------------------------------
+  -- Solve : 
+          min -0.0137924  max 0.138221
+Compliance :0.790913-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -2.95326  max 13.7914
+We increase the step size
+Mesh moved
+Actual Step 0.00533081------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 1269 , h  min 0.000551281 , h max 0.147937
+     area =  0.700856 , M area = 564.962 , M area/( |Khat| nt) 1.02815
+     infiny-regularity:  min 0.336924  max 2.53515
+     anisomax  9.45792, beta max = 1.3938 min  0.758241
+  --  mesh:  Nb of Triangles =   1269, Nb of Vertices 722
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 227 , h  min 0.0111863 , h max 0.36779
+     area =  0.702883 , M area = 5.7891 , M area/( |Khat| nt) 0.0588958
+     infiny-regularity:  min 0.00787535  max 4.66343
+     anisomax  13.7377, beta max = 34.2589 min  1.4384
+  --  mesh:  Nb of Triangles =    227, Nb of Vertices 149
+Mesh adaptation done
+Iteration 4 ----------------------------------------
+  -- Solve : 
+          min -0.0116208  max 0.137589
+Compliance :0.790891-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -0.900643  max 8.83029
+We increase the step size
+Mesh moved
+Actual Step 0.00710775------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 1327 , h  min 0.00197495 , h max 0.160298
+     area =  0.679307 , M area = 583.732 , M area/( |Khat| nt) 1.01588
+     infiny-regularity:  min 0.299336  max 2.48399
+     anisomax  10.4568, beta max = 1.46738 min  0.741654
+  --  mesh:  Nb of Triangles =   1327, Nb of Vertices 746
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 215 , h  min 0.0105602 , h max 0.548727
+     area =  0.68221 , M area = 5.4037 , M area/( |Khat| nt) 0.0580433
+     infiny-regularity:  min 0.00767387  max 3.60156
+     anisomax  16.2374, beta max = 35.9701 min  1.23161
+  --  mesh:  Nb of Triangles =    215, Nb of Vertices 141
+Mesh adaptation done
+Iteration 5 ----------------------------------------
+  -- Solve : 
+          min -0.0132247  max 0.135297
+Compliance :0.789676-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.3989  max 3.3103
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.0047385------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 1352 , h  min 0.00233975 , h max 0.135565
+     area =  0.675967 , M area = 605.589 , M area/( |Khat| nt) 1.03443
+     infiny-regularity:  min 0.175767  max 3.79179
+     anisomax  14.7891, beta max = 1.39279 min  0.762002
+  --  mesh:  Nb of Triangles =   1352, Nb of Vertices 761
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 207 , h  min 0.0112374 , h max 0.543871
+     area =  0.677603 , M area = 4.98667 , M area/( |Khat| nt) 0.0556339
+     infiny-regularity:  min 0.00764587  max 1.72448
+     anisomax  20.3279, beta max = 36.2989 min  1.54805
+  --  mesh:  Nb of Triangles =    207, Nb of Vertices 137
+Mesh adaptation done
+Iteration 6 ----------------------------------------
+  -- Solve : 
+          min -0.0114297  max 0.13446
+Compliance :0.808206-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -0.968814  max 3.68275
+We increase the step size
+Mesh moved
+Actual Step 0.006318------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 1354 , h  min 0.00233178 , h max 0.109669
+     area =  0.670902 , M area = 604.482 , M area/( |Khat| nt) 1.03101
+     infiny-regularity:  min 0.136574  max 3.3367
+     anisomax  32.4479, beta max = 1.96487 min  0.777655
+  --  mesh:  Nb of Triangles =   1354, Nb of Vertices 765
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 218 , h  min 0.0118006 , h max 0.5367
+     area =  0.671119 , M area = 5.72423 , M area/( |Khat| nt) 0.0606402
+     infiny-regularity:  min 0.00758526  max 5.78724
+     anisomax  14.4721, beta max = 36.8695 min  1.1523
+  --  mesh:  Nb of Triangles =    218, Nb of Vertices 143
+Mesh adaptation done
+Iteration 7 ----------------------------------------
+  -- Solve : 
+          min -0.0109807  max 0.133873
+Compliance :0.758763-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -0.722789  max 6.48253
+We increase the step size
+Mesh moved
+Actual Step 0.008424------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+182 Problem: insert point 179([82323175,71585284],[0.0346698,0.00640447]{0.0056724,0.00556877,[-0.706979,-0.707234]})189 tcvj = 0x5622c112cca0 0
+([116220722,89817821],[0.0755149,0.0283739]{0.0350063,0.0131279,[0.876921,0.480635]})([91770677,77996269],[0.0460536,0.0141294]{0.0291936,0.0105399,[0.851923,0.523666]})
+([116220722,89817821],[0.0755149,0.0283739]{0.0350063,0.0131279,[0.876921,0.480635]})([91770677,77996269],[0.0460536,0.0141294]{0.0291936,0.0105399,[0.851923,0.523666]})
+ Fatal error in the mesh generator 1001
+  current line = 373
+Meshing error: Bamg
+ number : 1001, 
+Meshing error: Bamg
+ number : 1001, 
+ err code 5 ,  mpirank 0

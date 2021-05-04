@@ -1,0 +1,1990 @@
+-- FreeFem++ v4.700001 (Sat Oct 17 12:48:33 CEST 2020 - git v4.7-64-g08041365)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue 
+    1 : ////////////////////////////////////////////////
+    2 : // Compliance Optimization                    //
+    3 : // by the boundary variation method           //
+    4 : // Copyright O.Pantz, G. Allaire (2005)       //
+    5 : ////////////////////////////////////////////////
+    6 : 
+    7 : // Optimization Parameters 
+    8 : int niter=60;			//Number of iterations
+    9 : real errelas=0.01;		//Error for the resolution of the variational problems
+   10 : real metricmsh=5.;		//Metric used for the coarse mesh: Bigger=finer mesh
+   11 : real initialstep=0.2;		//Initial step
+   12 : real maxstep=-1.;		//Maximum step (<0 => no limit)
+   13 : real lagrangestep=3.;		//Updating step of the Lagrange multiplier associated to the Volume's constraint
+   14 : bool tocontinue=false;		//false=start a new computation, true=continue a previous computation
+   15 : string backupname="output";	//Name under which the results are stored
+   16 : int nsave=1;			//Number of iterations to be saved
+   17 : real volume0=95.;		//=0 Constant Volume during the iterations, >0 Target Volume, <0 No Volume's constraint
+   18 : 
+   19 : int np =10;
+   20 : // construction of the initial mesh
+   21 : 	mesh Sh,Th,Shprev,Thprev;
+   22 : 	//Definition of the boundary labels
+   23 : 	int neumann=1; int dirichlet=2;
+   24 : 	int free=3;
+   25 : 
+   26 : 
+   27 : 	int WALL = 1;
+   28 : 	int LOAD = 2;
+   29 : 	int FREE = 3;
+   30 : //this is case 1
+   31 : 	
+   32 :  border L11(t = 0.0, 0.5){x = t; y = 0.0; label = FREE;}
+   33 :     border L21(t = 0.0, 0.45){x = 0.5; y = t; label = FREE;}
+   34 :     border L22(t = 0.45, 0.55){x = 0.5; y = t; label = LOAD;}
+   35 :     border L23(t = 0.55, 1.0){x = 0.5; y = t; label = FREE;}
+   36 :     border L31(t = 0.5, 0){x = t; y = 1.0; label = FREE;}
+   37 :     border L41(t = 1.0, 0.9){x = 0.0; y = t; label = WALL;}
+   38 :     border L42(t = 0.9, 0.1){x = 0.0; y = t; label = FREE;}
+   39 :     border L43(t = 0.1, 0.0){x = 0.0; y = t; label = WALL;}
+   40 : 
+   41 :     Sh = buildmesh(L11(5 * np) + L21(5 * np) + L22(1 * np) + L23(5 * np) + L31(5 * np) + L41(1 * np) + L42(8 * np) + L43(1 * np));
+   42 : 
+   43 : 
+   44 : //this is case 2
+   45 : 
+   46 : 	// real r = 0.15;                                                                    
+   47 : 
+   48 :  //    border L11(t = -1.0, 1.0){x = t; y = 0.0; label = FREE;}
+   49 :  //    border L21(t = 0.0, 0.45){x = 1.0; y = t; label = FREE;}
+   50 :  //    border L22(t = 0.45, 0.55){x = 1.0; y = t; label = LOAD;}
+   51 :  //    border L23(t = 0.55, 1.0){x = 1.0; y = t; label = FREE;}
+   52 :  //    border L31(t = 1.0, -1.0){x = t; y = 1.0; label = FREE;}
+   53 :  //    border L41(t = 1.0, 0.9){x = -1.0; y = t; label = WALL;}
+   54 :  //    border L42(t = 0.9, 0.1){x = -1.0; y = t; label = FREE;}
+   55 :  //    border L43(t = 0.1, 0.0){x = -1.0; y = t; label = WALL;}
+   56 : 
+   57 :     
+   58 :  //    border C11(t = 0, 2 * pi){x = -0.6 + r * cos(t); y = 0.22 + r * sin(t); label = FREE;}
+   59 :  //    border C12(t = 0, 2 * pi){x = 0.2 + r * cos(t); y = 0.22 + r * sin(t); label = FREE;}
+   60 :  //    border C21(t = 0, 2 * pi){x = -0.2 + r * cos(t); y = 0.5 + r * sin(t); label = FREE;}
+   61 :  //    border C22(t = 0, 2 * pi){x = 0.6 + r * cos(t); y = 0.5 + r * sin(t); label = FREE;}
+   62 :  //    border C31(t = 0, 2 * pi){x = -0.6 + r * cos(t); y = 0.78 + r * sin(t); label = FREE;}
+   63 :  //    border C32(t = 0, 2 * pi){x = 0.2 + r * cos(t); y = 0.78 + r * sin(t); label = FREE;}
+   64 : 
+   65 :  //    Sh = buildmesh(L11(20 * np) + L21(5 * np) + L22(1 * np) + L23(5 * np) + L31(20 * np) + L41(1 * np) + L42(8 * np) + L43(1 * np)
+   66 :  //                    + C11(-10 * np) + C12(-10 * np)  + C21(-10 * np) + C22(-10 * np) + C31(-10 * np) + C32(-10 * np));
+   67 : 
+   68 : 
+   69 : //this is case 3
+   70 : 
+   71 : 	 // real r = 0.2;                                                 
+   72 : 
+   73 :   //   border L11(t = 0.0, 1.0){x = t; y = 0.0; label = FREE;}
+   74 :   //   border L21(t = 0.0, 0.2){x = 1.0; y = t; label = LOAD;}
+   75 :   //   border L22(t = 0.2, 0.8){x = 1.0; y = t; label = FREE;}
+   76 :   //   border L23(t = 0.8, 1.0){x = 1.0; y = t; label = LOAD;}
+   77 :   //   border L31(t = 1.0, 0.0){x = t; y = 1.0; label = FREE;}
+   78 :   //   border L41(t = 1.0, 0.95){x = 0.0; y = t; label = WALL;}
+   79 :   //   border L42(t = 0.95, 0.05){x = 0.0; y = t; label = FREE;}
+   80 :   //   border L43(t = 0.05, 0.0){x = 0.0; y = t; label = WALL;}
+   81 : 
+   82 :     
+   83 :   //   border C11(t = 0, 2 * pi){x = 0.5 + r * cos(t); y = 0.25 + r * sin(t); label = FREE;}
+   84 :   //   border C31(t = 0, 2 * pi){x = 0.5 + r * cos(t); y = 0.75 + r * sin(t); label = FREE;}
+   85 : 
+   86 :   //   Sh = buildmesh(L11(10 * np) + L21(2 * np) + L22(6 * np) + L23(2 * np) + L31(10 * np) + L41(1 * np) + L42(9 * np) + L43(1 * np)
+   87 :   //       + C11(-15 * np) + C31(-15 * np)
+   88 :   //       );
+   89 : 
+   90 : 
+   91 : //this is case 4:
+   92 : 
+   93 : 	 // real r = 0.25;
+   94 : 
+   95 :   //   border L11(t = -1.0, -0.9){x = t; y = 0; label = FREE;}
+   96 :   //   border L12(t = -0.9, -0.2){x = t; y = 0; label = FREE;}
+   97 :   //   border L13(t = -0.2, 0.2){x = t; y = 0; label = FREE;}
+   98 :   //   border L14(t = 0.2, 0.9){x = t; y = 0; label = FREE;}
+   99 :   //   border L15(t = 0.9, 1.0){x = t; y = 0; label = FREE;}
+  100 :     
+  101 :   //   border L21(t = 0, 1.2){x = 1.0; y = t; label = FREE;}
+  102 :   //   border L22(t = 1.0, -1.0){x = t; y = 1.2; label = FREE;}
+  103 :   //   border L23(t = 1.2, 0){x = -1.0; y = t; label = FREE;}
+  104 :     
+  105 :   //   border C10(t = 0, 2 * pi){x = -0.6 + r * cos(t); y = 0.4 + r * sin(t); label = FREE;}
+  106 :   //   border C11(t = 0, 2 * pi){x = r * cos(t); y = 0.8 + r * sin(t); label = FREE;}
+  107 :   //   border C12(t = 0, 2 * pi){x = 0.6 + r * cos(t); y = 0.4 + r * sin(t); label = FREE;}
+  108 : 
+  109 :   //   Sh = buildmesh(L11(1 * np) + L12(7 * np) + L13(4 * np) + L14(7 * np) + L15(1 * np) + L21(12 * np) + L22(20 * np) + L23(12 * np) 
+  110 :   //       + C10(-15 * np) + C11(-15 * np) + C12(-15 * np) 
+  111 :   //       );
+  112 : 
+  113 : 
+  114 : //this is case 5
+  115 : // real r = 0.05;
+  116 : 
+  117 : //     border L11(t = 0.4, -0.4){x = t; y = 1.2; label = FREE;}
+  118 : //     border L21(t = 1.2, 0.8){x = -0.4; y = t; label = FREE;}
+  119 : //     border L31(t = -0.4, -0.35){x = t; y = 0.8; label = LOAD;}
+  120 : //     border L32(t = -0.35, -0.2){x = t; y = 0.8; label = FREE;}
+  121 : //     border L41(t = 0.8, 0.0){x = -0.2; y = t; label = FREE;}
+  122 : //     border L51(t = -0.2, -0.15){x = t; y = 0.0; label = WALL;}
+  123 : //     border L52(t = -0.15, 0.15){x = t; y = 0.0; label = FREE;}
+  124 : //     border L53(t = 0.15, 0.2){x = t; y = 0.0; label = WALL;}
+  125 : //     border L42(t = 0.0, 0.8){x = 0.2; y = t; label = FREE;}
+  126 : //     border L33(t = 0.2, 0.35){x = t; y = 0.8; label = FREE;}
+  127 : //     border L34(t = 0.35, 0.4){x = t; y = 0.8; label = LOAD;}
+  128 : //     border L22(t = 0.8, 1.2){x = 0.4; y = t; label = FREE;}
+  129 : 
+  130 : //     border C1(t = 0, 2 * pi){x = -0.25 + r * cos(t); y = 1.0 + r * sin(t); label = FREE;}
+  131 : //     border C2(t = 0, 2 * pi){x = r * cos(t); y = 1.0 + r * sin(t); label = FREE;}
+  132 : //     border C3(t = 0, 2 * pi){x = 0.25 + r * cos(t); y = 1.0 + r * sin(t); label = FREE;}
+  133 : 
+  134 : //     Sh = buildmesh(L11(8 * np) + L21(4 * np) + L31(1 * np) + L32(2 * np) + L41(8 * np) + L51(np) + L52(3 * np) + L53(1 * np) 
+  135 : //                     + L42(8 * np) + L33(2 * np) + L34(1 * np) + L22(4 * np) + C1(-7 * np) + C2(-7 * np) + C3(-7 * np));
+  136 : 
+  137 : 
+  138 : 
+  139 : // 	Th=Sh;
+  140 : // 	Thprev=Th;
+  141 : 
+  142 : 	// cut function used to regularize the gradient shape near singularities
+  143 : 	// func cut=1-(x>19.5)*(abs(y)<1.5)-(x<0.5)*(y>1.5)*(y<4.5)-(x<0.5)*(y<-1.5)*(y>-4.5);
+  144 : 
+  145 : 
+  146 : 	func cut=(0.2<x<0.3)*(0.4< y > 0.6) ;
+  147 : 
+  148 : // Material parameters
+  149 : 	real E=15.;				//Young Modulus (always positif)
+  150 : 	real nu=0.35;				//Poisson ratio (between -1 and 1/2)
+  151 : 	real lambda=E*nu/((1.+nu)*(1.-2.*nu));	//Lame Moduli
+  152 : 	real mu=E/(2.*(1.+nu));
+  153 : 
+  154 : //Applied Loads
+  155 : 	func g1=50; func g2=0;
+  156 : 
+  157 : //Definition of the variables and intialization
+  158 : 	//Finite elements spaces on the finer mesh Sh
+  159 : 		fespace Wh(Sh,P1);  		
+  160 : 		fespace WSh(Sh,[P2,P2]);
+  161 : 	//Finite elements spaces on the coarse mesh Th
+  162 : 		fespace WTh(Th,[P2,P2]);	
+  163 : 		
+  164 : 	Wh gradient; 			//Gradient
+  165 : 	WSh [d1,d2];			//extension field
+  166 : 	WSh [theta1,theta2];		//test functions for the extension field
+  167 : 	WSh [u1,u2],[v1,v2];		//Displacement and Test functions
+  168 : 
+  169 : 	//Interpolated Finite elements on the coarse mesh
+  170 : 	WTh [D1,D2],[Dprev1,Dprev2]; 
+  171 : 	WTh [U1,U2],[Uprev1,Uprev2];
+  172 : 
+  173 : 	int nsaved=0;			//Initialization counter of the back-up copies
+  174 : 	int nsave0=100;			//Current number of back-up copies
+  175 : 	real compliance;		//Compliance
+  176 : 	real volume;
+ *** Warning  The identifier volume hide a Global identifier  
+			//Volume of the current shape
+  177 : 	real perimeter;			//Perimeter of the optimized boundary
+  178 : 	string caption;			//Caption for graphic outputs
+  179 : 	real GradNorm;			//Gradient Norm
+  180 : 	real GradProduct;		//Scalar product between the current gradient and the previous one
+  181 : 	bool rollback=false;		//Did we roll back ?
+  182 : 	real actualstep;		//Actual step size
+  183 : 	real lagrange;			//Lagrange Multiplier associated to the Volume constraint
+  184 : 	real[int] isoval(20);		//isovalue used for graphic outputs
+  185 : 
+  186 : 	int constrained=1;
+  187 : 	if (volume0<0) {constrained=0;};
+  188 : 
+  189 : /////////////////////////
+  190 : // Elasticity Problem  //
+  191 : /////////////////////////
+  192 : 	problem elasticity([u1,u2],[v1,v2]) =
+  193 : 		int2d(Sh)(
+  194 :         		2.*mu*(dx(u1)*dx(v1)+dy(u2)*dy(v2)+((dx(u2)+dy(u1))*(dx(v2)+dy(v1)))/2.)
+  195 :               		+lambda*(dx(u1)+dy(u2))*(dx(v1)+dy(v2)))
+  196 : 		-int1d(Sh,neumann)(g1*v1+g2*v2)	           
+  197 :     	+on(FREE,u1=0,u2=0);
+  198 : 
+  199 : ////////////////////////////////////////
+  200 : // Expression of the shape's Gradient //
+  201 : ////////////////////////////////////////
+  202 : 	macro gradientexp()
+  203 # 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 # //
+  205 : 
+  206 : ///////////////////////
+  207 : // Extension Problem //
+  208 : ///////////////////////
+  209 : //  H1 scalar product between vector-valued functions
+  210 : 	macro prodscal(t1,t2,p1,p2)
+  211 # 		dx(t1)*dx(p1)+dy(t1)*dy(p1)+dx(t2)*dx(p2)+dy(t2)*dy(p2)+t1*p1+t2*p2
+  212 #  )  //
+  213 : 	problem extension([d1,d2],[theta1,theta2]) =
+  214 : 		int2d(Sh)(prodscal(d1,d2,theta1,theta2)
+  211 @ 		
+  212 @ 
+  211 @ 		dx(d1)*dx(theta1)+dy(d1)*dy(theta1)+dx(d2)*dx(theta2)+dy(d2)*dy(theta2)+d1*theta1+d2*theta2
+  212 @ )
+  215 : 		+int1d(Sh,free) ((theta1*N.x+theta2*N.y)*(gradientexp
+  203 @ 	
+  204 @ 
+  203 @ 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 @  + lagrange*constrained)*cut)
+  216 : 	  +on(WALL,d1=0,d2=0);
+  217 : 
+  218 : //////////////////////////////
+  219 : //      Initialization      //
+  220 : //////////////////////////////
+  221 : int iter,iter0;
+  222 : string  backupnameNb;
+  223 : if(!tocontinue){
+  224 : 	iter0=1;
+  225 : 	if (volume0==0) {volume0=int1d(Sh)(x*N.x+y*N.y)/2;}	// Computation of the initial Volume
+  226 : 	elasticity;						// Solving the State Equation
+  227 : 	compliance=int1d(Sh,neumann)(g1*u1+g2*u2);		// Initial Compliance
+  228 : 	gradient=-(gradientexp
+  203 @ 	
+  204 @ 
+  203 @ 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 @ );				// Computation of the shape derivative
+  229 : 
+  230 : 	//Evaluation of the Lagrande Multiplier associated to the Volume constraint
+  231 : 	lagrange=int1d(Sh,free)(gradient*cut)/int1d(Sh,free)(cut);
+  232 : 	gradient=(gradient-lagrange*constrained)*cut;
+  233 : 
+  234 : 	//Mesh Adaptation
+  235 : 		Th=Sh;
+  236 : 		[U1,U2]=[u1,u2];   //interpolation of u on the coarse mesh Th
+  237 : 		[Uprev1,Uprev2]=[0,0]; Uprev1[]=U1[]; Uprev2[]=U2[];
+  238 : 		Sh=adaptmesh (Th,Uprev1,Uprev2,err=errelas);
+  239 : 		actualstep=initialstep;			//Initialization of the initial step
+  240 : 
+  241 : 	//We save the intial shape
+  242 : 	if (nsave!=0) {
+  243 : 		//isovalue for graphic output
+  244 : 			real gmax=gradient[].max;
+  245 : 			real gmin=gradient[].min;
+  246 : 			for (int j=0;j<isoval.n;j++) isoval[j]=gmin+(gmax-gmin)/isoval.n*j;
+  247 : 		caption="Initial shape, Compliance "+compliance+", Volume "+volume0;
+  248 : 		backupnameNb=backupname+nsaved;
+  249 : 		plot(gradient,fill=1,value=1,cmm=caption,viso=isoval,ps= "output/"+backupnameNb+".eps");};}
+  250 : else {
+  251 : // We recover the datas of a previous computation
+  252 : 	// Updating of the meshs if we continue a previous computation
+  253 : 		Sh=readmesh(backupname+".msh");
+  254 : 		Th=readmesh(backupname+"-geo.msh");
+  255 : 		Shprev=readmesh(backupname+"-prev.msh");
+  256 : 		Thprev=readmesh(backupname+"-geo-prev.msh");
+  257 : 	ifstream f(backupname+".txt");
+  258 : 	if (volume0==0) {f >>volume0;} else {real next; f >>next;};
+  259 : 	f >>lagrange;		//Lagrange Multiplier
+  260 : 	f >>actualstep;		//Actual step size
+  261 : 	f >>rollback;		//Did we roll back ?
+  262 : 	f >>iter0;		//iteration de départ
+  263 : 	f >>nsave0;		//Number of previous back-up copies
+  264 : 	f >>isoval;
+  265 : 	f >>Dprev1[];f>>Dprev2[];//Previous extenstion fields
+  266 : 	nsaved=nsave0; 
+  267 : 	nsave0=nsave0+1;};
+  268 : 
+  269 : /////////////////////////////////////
+  270 : // Initialization of the Algorithm //
+  271 : /////////////////////////////////////
+  272 : 	elasticity;					//Solving the state equation
+  273 : 	compliance=int1d(Sh,neumann)(g1*u1+g2*u2);	//Initial compliance
+  274 : 	gradient=-(gradientexp
+  203 @ 	
+  204 @ 
+  203 @ 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 @ );			//Computation of the shape derivative
+  275 : 	//Evaluation of the Lagrange Multiplier associated to the Volume constraint
+  276 : 	lagrange=int1d(Sh,free)(gradient*cut)/int1d(Sh,free)(cut);
+  277 : 	gradient=(gradient-lagrange*constrained)*cut;
+  278 : 
+  279 : ///////////////////////////////
+  280 : //     Optimization Loop     //
+  281 : ///////////////////////////////
+  282 : for (iter=iter0;iter< niter+iter0;iter=iter+1){
+  283 : 	cout <<"Iteration " <<iter <<" ----------------------------------------" <<endl;
+  284 : 
+  285 : 	////////////////////////////
+  286 : 	// Gradient's Computation //
+  287 : 	////////////////////////////
+  288 : 	elasticity;
+  289 : 	compliance=int1d(Sh,neumann)(g1*u1+g2*u2);
+  290 : 	gradient=-(gradientexp
+  203 @ 	
+  204 @ 
+  203 @ 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 @ )*cut;
+  291 : 	cout<<"Compliance :"<<compliance<<"-------------------------------------"<<endl;
+  292 : 
+  293 : 	[U1,U2]=[u1,u2];  //interpolation of u on the coarse mesh
+  294 : 
+  295 : 	//Update of the lagrange multiplier
+  296 : 		volume=int1d(Sh)(x*N.x+y*N.y)/2;
+  297 : 		perimeter=int1d(Sh,free)(cut);
+  298 : 		lagrange=0.5*lagrange+0.5*int1d(Sh,free)(gradient)/perimeter
+  299 : 		+lagrangestep*(volume-volume0)/volume0;
+  300 : 	gradient=gradient-lagrange*constrained*cut;
+  301 : 	
+  302 : 	/////////////////////
+  303 : 	// Graphic Outputs //
+  304 : 	/////////////////////
+  305 : 	//isovalues
+  306 : 		real gmax=gradient[].max;
+  307 : 		for (int j=0;j<isoval.n;j++) 
+  308 : 		isoval[j]=isoval[j]*(0.7*isoval[isoval.n-1]+0.3*gmax)/isoval[isoval.n-1];
+  309 : 	caption="Iteration "+iter+", Compliance="+compliance+", Volume="+volume;
+  310 : 	backupnameNb="output/"+backupname+nsaved+".eps";
+  311 : 	plot(gradient,fill=1,value=1,cmm=caption,viso=isoval);
+  312 : 	
+  313 : 	/////////////////////////
+  314 : 	// Back-up Iterations  //
+  315 : 	/////////////////////////
+  316 : 	if ((nsaved-nsave0)*niter<(iter-iter0-1)*nsave) {
+  317 : 	nsaved=nsaved+1;
+  318 : 	caption="Iteration "+iter+", Compliance ="+compliance+", Volume="+volume;
+  319 : 	backupnameNb="output/"+backupname+nsaved+".eps";
+  320 : 	plot(gradient,fill=1,value=1,cmm=caption,viso=isoval,ps=backupnameNb);
+  321 : 	savemesh(Sh,backupname+".msh");};
+  322 : 
+  323 : 	///////////////////////////////
+  324 : 	// Modification of the shape //
+  325 : 	///////////////////////////////
+  326 : 	extension;		//Computation of the field [d1,d2]
+  327 : 	[D1,D2]=[d1,d2];	//Interpolation on the coarse mesh
+  328 : 
+  329 : 	////////////////////////////////////
+  330 : 	// Updating the step              //
+  331 : 	////////////////////////////////////
+  332 : 	GradNorm=int2d(Th)(prodscal(D1,D2,D1,D2)
+  211 @ 		
+  212 @ 
+  211 @ 		dx(D1)*dx(D1)+dy(D1)*dy(D1)+dx(D2)*dx(D2)+dy(D2)*dy(D2)+D1*D1+D2*D2
+  212 @ );
+  333 : 	GradProduct=int2d(Th)(prodscal(D1,D2,Dprev1,Dprev2)
+  211 @ 		
+  212 @ 
+  211 @ 		dx(D1)*dx(Dprev1)+dy(D1)*dy(Dprev1)+dx(D2)*dx(Dprev2)+dy(D2)*dy(Dprev2)+D1*Dprev1+D2*Dprev2
+  212 @ );
+  334 : 	if ((GradProduct<0.)&(!rollback)) {
+  335 : 		actualstep=actualstep*GradNorm/(GradNorm-GradProduct)/4.; 
+  336 :                 cout<<"Step too big: we step back !!!"<<endl; Th=Thprev; Sh=Shprev; rollback=true;}
+  337 : 	else 
+  338 : 		rollback=false;
+  339 : 	if ((GradProduct>0.)&(GradProduct<(GradNorm/2.))){
+  340 : 		actualstep=actualstep*2.*GradNorm/(2.*GradNorm-GradProduct); 
+  341 :                 cout<<"We increase the step size"<<endl;};
+  342 : 	if (GradProduct>(GradNorm/2.)){
+  343 : 		actualstep=actualstep*4./3.;
+  344 : 		cout<<"We increase the step size"<<endl;};
+  345 : 	if(maxstep>0.) 
+  346 : 		actualstep=min(actualstep,maxstep);
+  347 : 	Thprev=Th;	//We keep a copy of the meshs (in case of backup at the next loop's step)
+  348 : 	Shprev=Sh;
+  349 : 
+  350 : 	//////////////////////////////////
+  351 : 	// We move the coarse mesh Th   //
+  352 : 	//////////////////////////////////
+  353 : 	if (!rollback){
+  354 : 		real aa,minaire=checkmovemesh (Th,[x,y])/10000.;
+  355 : 		while (minaire > (aa=checkmovemesh(Th,[x+actualstep*D1,y+actualstep*D2])) ){
+  356 :   			cout << " problem reversed triangle  => actualstep= actual
+  ... : step/2. "<<endl; 
+  357 : 			actualstep= actualstep/2.;
+  358 : 					}
+  359 : 		Th = movemesh (Th,[x+actualstep*D1,y+actualstep*D2]);
+  360 : 		cout<<"Mesh moved"<<endl;
+  361 : 		cout<<"Actual Step "<<actualstep<<"------------------------------------"<<endl;
+  362 : 		[Dprev1,Dprev2]=[0,0];
+  363 : 		Dprev1[]=D1[];Dprev2[]=D2[];
+  364 : 		[Uprev1,Uprev2]=[0,0]; Uprev1[]=U1[]; Uprev2[]=U2[]; //Interpolation of u on the new mesh Th
+  365 : 		};
+  366 : 
+  367 : 	//////////////////////
+  368 : 	// Mesh Adaptation  //
+  369 : 	//////////////////////
+  370 : 	if (rollback){Sh=Shprev; } 		//We step back
+  371 : 	else {
+  372 : 		cout<<"Mesh adaptation of Sh"<<endl;
+  373 : 		Sh=adaptmesh(Th,Uprev1,Uprev2,[Dprev1,Dprev2],err=errelas);
+  374 : 		plot(Sh,wait=0);
+  375 : 		cout<<"Mesh adaptation of the coarse mesh Th"<<endl;
+  376 : 		Th=adaptmesh(Sh,metricmsh,0,metricmsh,IsMetric=1,ratio=0,omega=200,splitpbedge=1,hmin=0.05,abserror=1); }
+  377 : 	cout<<"Mesh adaptation done"<<endl;
+  378 : };
+  379 : ///// END OF THE OPTIMIZATION LOOP /////
+  380 : 
+  381 : // Back-up    ///////////////////////////////////////////////
+  382 : if (nsave!=0) {
+  383 : 	//We save the meshes
+  384 : 		savemesh(Sh,backupname+".msh");
+  385 : 		savemesh(Shprev,backupname+"-prev.msh");
+  386 : 		savemesh(Th,backupname+"-geo.msh");
+  387 : 		savemesh(Th,backupname+"-geo-prev.msh");
+  388 : 	//We save all variables
+  389 : 		{ofstream f(backupname+".txt");
+  390 : 		f << volume0<<"\n";	//Initial Volume
+  391 : 		f <<lagrange<<"\n";	//Lagrange Multiplier
+  392 : 		f <<actualstep<<"\n";	//Actual step
+  393 : 		f <<rollback<<"\n";	//boolean variable
+  394 : 		f <<iter<<"\n";		//Current Iteration
+  395 : 		f <<nsaved+1<<"\n";	//Number of back-up done
+  396 : 		f <<isoval<<"\n";
+  397 : 		[Dprev1,Dprev2]=[Dprev1,Dprev2];
+  398 : 		f <<Dprev1[]<<endl;f<<Dprev2[]<<endl;};
+  399 : 	nsaved=nsaved+1;
+  400 : 	elasticity;
+  401 : 	gradient=-(gradientexp
+  203 @ 	
+  204 @ 
+  203 @ 	-2.*mu*(dx(u1)^2+dy(u2)^2+((dx(u2)+dy(u1))^2)/2.)-lambda*(dx(u1)+dy(u2))^2
+  204 @ );
+  402 : 	compliance=int1d(Sh,neumann)(g1*u1+g2*u2);
+  403 : 	cout<<"Compliance : "<<compliance<<"-------------------------------------"<<endl;
+  404 : 	gradient=gradient*cut;
+  405 : 	volume=int2d(Sh)(1.);
+  406 : 	perimeter=int1d(Sh,free)(cut);
+  407 : 	lagrange=0.5*lagrange+0.5*int1d(Sh,free)(gradient)/perimeter+lagrangestep*(volume-volume0)/volume0;
+  408 : 	gradient=gradient-lagrange*constrained*cut;
+  409 : 	//Graphic output of the gradient
+  410 : 		caption="Iteration "+iter+", Compliance ="+compliance+", Volume="+volume;
+  411 : 		backupnameNb=backupname+nsaved+".eps";
+  412 : 		plot(gradient,fill=1,value=0,cmm=caption,viso=isoval,ps="output/"+ backupnameNb);
+  413 : };
+  414 :  sizestack + 1024 =11360  ( 10336 )
+
+  --  mesh:  Nb of Triangles =  12076, Nb of Vertices 6194
+  -- Solve : 
+          min -0.0542519  max 0.228558
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 3539 , h  min 0.00141128 , h max 0.0971389
+     area =  0.5 , M area = 1537.32 , M area/( |Khat| nt) 1.00319
+     infiny-regularity:  min 0.364696  max 2.07902
+     anisomax  3.8722, beta max = 1.35701 min  0.713629
+  --  mesh:  Nb of Triangles =   3539, Nb of Vertices 1875
+  -- Solve : 
+          min -0.0550843  max 0.230454
+Iteration 1 ----------------------------------------
+  -- Solve : 
+          min -0.0550843  max 0.230454
+Compliance :1.72099-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.89867  max 11.6779
+ problem reversed triangle  => actualstep= actualstep/2. 
+ problem reversed triangle  => actualstep= actualstep/2. 
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.025------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 4358 , h  min 0.00105829 , h max 0.0826894
+     area =  0.480239 , M area = 1887.95 , M area/( |Khat| nt) 1.00047
+     infiny-regularity:  min 0.375489  max 2.00867
+     anisomax  15.7947, beta max = 1.40127 min  0.651164
+  --  mesh:  Nb of Triangles =   4358, Nb of Vertices 2312
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 85 , h  min 0.00559794 , h max 0.448433
+     area =  0.481631 , M area = 9.14514 , M area/( |Khat| nt) 0.248468
+     infiny-regularity:  min 0.00962698  max 5.0962
+     anisomax  14.5601, beta max = 28.1894 min  0.814361
+  --  mesh:  Nb of Triangles =     85, Nb of Vertices 60
+Mesh adaptation done
+Iteration 2 ----------------------------------------
+  -- Solve : 
+          min -0.0308656  max 0.223138
+Compliance :1.59171-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -18.6166  max 9.41779
+Step too big: we step back !!!
+Mesh adaptation done
+Iteration 3 ----------------------------------------
+  -- Solve : 
+          min -0.0550843  max 0.230454
+Compliance :1.72099-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -9.743  max 34.2984
+We increase the step size
+Mesh moved
+Actual Step 0.00827624------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 4276 , h  min 0.00144915 , h max 0.0925035
+     area =  0.461411 , M area = 1876.04 , M area/( |Khat| nt) 1.01322
+     infiny-regularity:  min 0.375784  max 1.939
+     anisomax  10.8319, beta max = 1.42309 min  0.728831
+  --  mesh:  Nb of Triangles =   4276, Nb of Vertices 2268
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 70 , h  min 0.011868 , h max 0.444251
+     area =  0.462812 , M area = 9.38932 , M area/( |Khat| nt) 0.309767
+     infiny-regularity:  min 0.0176295  max 6.61943
+     anisomax  13.3594, beta max = 13.286 min  0.817565
+  --  mesh:  Nb of Triangles =     70, Nb of Vertices 50
+Mesh adaptation done
+Iteration 4 ----------------------------------------
+  -- Solve : 
+          min -0.0324946  max 0.208894
+Compliance :1.45371-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.91763  max 6.95136
+We increase the step size
+Mesh moved
+Actual Step 0.011035------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 1286 , h  min 0.0020536 , h max 0.116466
+     area =  0.460628 , M area = 575.15 , M area/( |Khat| nt) 1.03286
+     infiny-regularity:  min 0.284411  max 4.98478
+     anisomax  7.20901, beta max = 1.35299 min  0.747701
+  --  mesh:  Nb of Triangles =   1286, Nb of Vertices 715
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 54 , h  min 0.0094748 , h max 0.450818
+     area =  0.459885 , M area = 4.61823 , M area/( |Khat| nt) 0.197506
+     infiny-regularity:  min 0.0114985  max 2.48465
+     anisomax  11.1344, beta max = 26.063 min  1.12057
+  --  mesh:  Nb of Triangles =     54, Nb of Vertices 40
+Mesh adaptation done
+Iteration 5 ----------------------------------------
+  -- Solve : 
+          min -0.032072  max 0.204776
+Compliance :1.21764-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.21208  max 2.22088
+We increase the step size
+Mesh moved
+Actual Step 0.0147133------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 974 , h  min 0.00189534 , h max 0.10796
+     area =  0.458129 , M area = 437.729 , M area/( |Khat| nt) 1.03788
+     infiny-regularity:  min 0.33149  max 4.18105
+     anisomax  9.51317, beta max = 1.40837 min  0.594405
+  --  mesh:  Nb of Triangles =    974, Nb of Vertices 554
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 52 , h  min 0.0094721 , h max 0.451981
+     area =  0.457904 , M area = 5.04831 , M area/( |Khat| nt) 0.224203
+     infiny-regularity:  min 0.0113452  max 7.24574
+     anisomax  28.2606, beta max = 23.2891 min  0.998749
+  --  mesh:  Nb of Triangles =     52, Nb of Vertices 39
+Mesh adaptation done
+Iteration 6 ----------------------------------------
+  -- Solve : 
+          min -0.0288536  max 0.204281
+Compliance :1.17519-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.50838  max 1.3765
+We increase the step size
+Mesh moved
+Actual Step 0.0196178------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 923 , h  min 0.00227228 , h max 0.123755
+     area =  0.456715 , M area = 404.698 , M area/( |Khat| nt) 1.01258
+     infiny-regularity:  min 0.334534  max 2.79928
+     anisomax  8.51867, beta max = 1.40682 min  0.768614
+  --  mesh:  Nb of Triangles =    923, Nb of Vertices 529
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 56 , h  min 0.00947065 , h max 0.451451
+     area =  0.456473 , M area = 4.92234 , M area/( |Khat| nt) 0.202994
+     infiny-regularity:  min 0.0114166  max 7.82646
+     anisomax  30.0356, beta max = 23.4342 min  1.09298
+  --  mesh:  Nb of Triangles =     56, Nb of Vertices 41
+Mesh adaptation done
+Iteration 7 ----------------------------------------
+  -- Solve : 
+          min -0.0286151  max 0.204534
+Compliance :1.12972-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.17458  max 1.4852
+We increase the step size
+Mesh moved
+Actual Step 0.026157------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 950 , h  min 0.00264363 , h max 0.128207
+     area =  0.457625 , M area = 428.872 , M area/( |Khat| nt) 1.04256
+     infiny-regularity:  min 0.362597  max 2.31638
+     anisomax  8.81173, beta max = 1.2725 min  0.728751
+  --  mesh:  Nb of Triangles =    950, Nb of Vertices 543
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 54 , h  min 0.00943332 , h max 0.452367
+     area =  0.457473 , M area = 4.77942 , M area/( |Khat| nt) 0.2044
+     infiny-regularity:  min 0.0111815  max 5.36907
+     anisomax  50.4818, beta max = 23.856 min  0.983185
+  --  mesh:  Nb of Triangles =     54, Nb of Vertices 40
+Mesh adaptation done
+Iteration 8 ----------------------------------------
+  -- Solve : 
+          min -0.0294001  max 0.203676
+Compliance :1.13532-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.6215  max 1.57314
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.008719------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 883 , h  min 0.00242082 , h max 0.122872
+     area =  0.457669 , M area = 390.28 , M area/( |Khat| nt) 1.02074
+     infiny-regularity:  min 0.0693525  max 5.46232
+     anisomax  36.1044, beta max = 3.32022 min  0.742003
+  --  mesh:  Nb of Triangles =    883, Nb of Vertices 510
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 56 , h  min 0.00944889 , h max 0.452862
+     area =  0.457541 , M area = 4.62428 , M area/( |Khat| nt) 0.190702
+     infiny-regularity:  min 0.00454887  max 3.02742
+     anisomax  119.126, beta max = 24.485 min  1.09551
+  --  mesh:  Nb of Triangles =     56, Nb of Vertices 41
+Mesh adaptation done
+Iteration 9 ----------------------------------------
+  -- Solve : 
+          min -0.0282817  max 0.204032
+Compliance :1.1257-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -2.2209  max 1.49678
+We increase the step size
+Mesh moved
+Actual Step 0.0116253------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 946 , h  min 0.00346696 , h max 0.123461
+     area =  0.457513 , M area = 420.822 , M area/( |Khat| nt) 1.02732
+     infiny-regularity:  min 0.221088  max 2.97986
+     anisomax  10.5637, beta max = 1.94867 min  0.751652
+  --  mesh:  Nb of Triangles =    946, Nb of Vertices 542
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00946644 , h max 0.452565
+     area =  0.457923 , M area = 4.5288 , M area/( |Khat| nt) 0.205075
+     infiny-regularity:  min 0.00958293  max 2.63263
+     anisomax  66.2564, beta max = 24.5287 min  1.05581
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 10 ----------------------------------------
+  -- Solve : 
+          min -0.0279684  max 0.203754
+Compliance :1.11205-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.37582  max 1.52157
+We increase the step size
+Mesh moved
+Actual Step 0.014171------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 955 , h  min 0.00362896 , h max 0.109428
+     area =  0.458993 , M area = 435.652 , M area/( |Khat| nt) 1.0535
+     infiny-regularity:  min 0.290106  max 5.96407
+     anisomax  7.05724, beta max = 1.29635 min  0.578034
+  --  mesh:  Nb of Triangles =    955, Nb of Vertices 545
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00944401 , h max 0.4527
+     area =  0.458705 , M area = 4.40757 , M area/( |Khat| nt) 0.192054
+     infiny-regularity:  min 0.0112886  max 2.96302
+     anisomax  50.1027, beta max = 26.5768 min  1.07345
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 11 ----------------------------------------
+  -- Solve : 
+          min -0.0280482  max 0.203532
+Compliance :1.12445-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.33531  max 1.56885
+We increase the step size
+Mesh moved
+Actual Step 0.0188946------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 935 , h  min 0.00305337 , h max 0.118753
+     area =  0.458996 , M area = 414.649 , M area/( |Khat| nt) 1.02416
+     infiny-regularity:  min 0.233223  max 3.51078
+     anisomax  8.33186, beta max = 1.29928 min  0.758826
+  --  mesh:  Nb of Triangles =    935, Nb of Vertices 534
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00944247 , h max 0.452248
+     area =  0.458676 , M area = 4.46041 , M area/( |Khat| nt) 0.201978
+     infiny-regularity:  min 0.0113952  max 2.64925
+     anisomax  37.3881, beta max = 26.4117 min  0.968961
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 12 ----------------------------------------
+  -- Solve : 
+          min -0.028469  max 0.204021
+Compliance :1.13465-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.36415  max 1.59477
+We increase the step size
+Mesh moved
+Actual Step 0.0251928------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 904 , h  min 0.00357789 , h max 0.113735
+     area =  0.458972 , M area = 401.389 , M area/( |Khat| nt) 1.02541
+     infiny-regularity:  min 0.215346  max 3.62911
+     anisomax  11.2232, beta max = 1.2982 min  0.692063
+  --  mesh:  Nb of Triangles =    904, Nb of Vertices 520
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00943091 , h max 0.451846
+     area =  0.458619 , M area = 4.39756 , M area/( |Khat| nt) 0.191618
+     infiny-regularity:  min 0.0115098  max 2.3186
+     anisomax  32.4089, beta max = 26.3409 min  1.12933
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 13 ----------------------------------------
+  -- Solve : 
+          min -0.0288386  max 0.203844
+Compliance :1.14626-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.41882  max 1.70681
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.0167952------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 960 , h  min 0.00327109 , h max 0.114005
+     area =  0.458746 , M area = 435.488 , M area/( |Khat| nt) 1.04762
+     infiny-regularity:  min 0.200012  max 3.3051
+     anisomax  9.92556, beta max = 1.3741 min  0.772809
+  --  mesh:  Nb of Triangles =    960, Nb of Vertices 549
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 55 , h  min 0.00943843 , h max 0.451896
+     area =  0.4584 , M area = 4.44303 , M area/( |Khat| nt) 0.186559
+     infiny-regularity:  min 0.0114787  max 2.28108
+     anisomax  38.8202, beta max = 26.3367 min  0.963323
+  --  mesh:  Nb of Triangles =     55, Nb of Vertices 40
+Mesh adaptation done
+Iteration 14 ----------------------------------------
+  -- Solve : 
+          min -0.0287057  max 0.20394
+Compliance :1.14692-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.403  max 1.65872
+We increase the step size
+Mesh moved
+Actual Step 0.0223936------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 857 , h  min 0.00360038 , h max 0.120206
+     area =  0.458223 , M area = 399.256 , M area/( |Khat| nt) 1.0759
+     infiny-regularity:  min 0.265633  max 2.77029
+     anisomax  10.2783, beta max = 1.38781 min  0.749984
+  --  mesh:  Nb of Triangles =    857, Nb of Vertices 496
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 47 , h  min 0.00943947 , h max 0.451805
+     area =  0.457875 , M area = 4.39215 , M area/( |Khat| nt) 0.215813
+     infiny-regularity:  min 0.0114894  max 2.35294
+     anisomax  47.2551, beta max = 26.3117 min  0.991041
+  --  mesh:  Nb of Triangles =     47, Nb of Vertices 36
+Mesh adaptation done
+Iteration 15 ----------------------------------------
+  -- Solve : 
+          min -0.0286334  max 0.203773
+Compliance :1.13937-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.37059  max 1.61378
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.0149291------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 867 , h  min 0.00352994 , h max 0.131118
+     area =  0.458251 , M area = 388.032 , M area/( |Khat| nt) 1.03359
+     infiny-regularity:  min 0.241443  max 3.97232
+     anisomax  9.6297, beta max = 1.60577 min  0.709925
+  --  mesh:  Nb of Triangles =    867, Nb of Vertices 502
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00943621 , h max 0.452055
+     area =  0.457912 , M area = 4.45732 , M area/( |Khat| nt) 0.210076
+     infiny-regularity:  min 0.0100872  max 2.69738
+     anisomax  63.1738, beta max = 26.3821 min  1.00317
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 16 ----------------------------------------
+  -- Solve : 
+          min -0.0285472  max 0.203796
+Compliance :1.13666-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.36914  max 1.57186
+We increase the step size
+Mesh moved
+Actual Step 0.0199054------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 884 , h  min 0.00374031 , h max 0.122914
+     area =  0.458027 , M area = 403.858 , M area/( |Khat| nt) 1.05506
+     infiny-regularity:  min 0.216937  max 4.38383
+     anisomax  9.67753, beta max = 1.3246 min  0.774864
+  --  mesh:  Nb of Triangles =    884, Nb of Vertices 510
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00943955 , h max 0.451997
+     area =  0.457687 , M area = 4.43354 , M area/( |Khat| nt) 0.208956
+     infiny-regularity:  min 0.00924925  max 2.52684
+     anisomax  69.8273, beta max = 26.3604 min  0.967372
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 17 ----------------------------------------
+  -- Solve : 
+          min -0.0285744  max 0.203645
+Compliance :1.12599-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.36889  max 1.52497
+We increase the step size
+Mesh moved
+Actual Step 0.0246039------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 936 , h  min 0.00351297 , h max 0.10314
+     area =  0.458307 , M area = 419.367 , M area/( |Khat| nt) 1.03471
+     infiny-regularity:  min 0.221779  max 3.35364
+     anisomax  10.4101, beta max = 1.33881 min  0.741314
+  --  mesh:  Nb of Triangles =    936, Nb of Vertices 537
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00942169 , h max 0.451145
+     area =  0.457894 , M area = 4.48005 , M area/( |Khat| nt) 0.211147
+     infiny-regularity:  min 0.0116842  max 2.76469
+     anisomax  31.2044, beta max = 26.1962 min  1.00071
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 18 ----------------------------------------
+  -- Solve : 
+          min -0.0292172  max 0.203348
+Compliance :1.13197-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.28973  max 1.59893
+We increase the step size
+Mesh moved
+Actual Step 0.0328052------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 941 , h  min 0.00353031 , h max 0.119878
+     area =  0.457885 , M area = 417.281 , M area/( |Khat| nt) 1.02409
+     infiny-regularity:  min 0.219854  max 3.3623
+     anisomax  8.67379, beta max = 1.43104 min  0.717495
+  --  mesh:  Nb of Triangles =    941, Nb of Vertices 538
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00943359 , h max 0.450871
+     area =  0.457457 , M area = 4.36649 , M area/( |Khat| nt) 0.205796
+     infiny-regularity:  min 0.01168  max 2.46424
+     anisomax  35.165, beta max = 26.1088 min  1.00388
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 19 ----------------------------------------
+  -- Solve : 
+          min -0.0292577  max 0.203916
+Compliance :1.1412-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.37296  max 1.62968
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.0198975------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 921 , h  min 0.00351856 , h max 0.122167
+     area =  0.458691 , M area = 403.289 , M area/( |Khat| nt) 1.01124
+     infiny-regularity:  min 0.350156  max 2.95942
+     anisomax  10.2205, beta max = 1.43176 min  0.74445
+  --  mesh:  Nb of Triangles =    921, Nb of Vertices 530
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00941679 , h max 0.451922
+     area =  0.458338 , M area = 4.41157 , M area/( |Khat| nt) 0.199766
+     infiny-regularity:  min 0.00943034  max 2.82716
+     anisomax  69.1051, beta max = 26.404 min  1.0193
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 20 ----------------------------------------
+  -- Solve : 
+          min -0.02901  max 0.203223
+Compliance :1.14634-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.77298  max 1.64443
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.0124342------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 922 , h  min 0.00314389 , h max 0.124043
+     area =  0.458235 , M area = 413.55 , M area/( |Khat| nt) 1.03585
+     infiny-regularity:  min 0.0900287  max 4.08699
+     anisomax  40.4328, beta max = 3.43971 min  0.680888
+  --  mesh:  Nb of Triangles =    922, Nb of Vertices 531
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00942865 , h max 0.452101
+     area =  0.457901 , M area = 4.42732 , M area/( |Khat| nt) 0.208662
+     infiny-regularity:  min 0.004267  max 2.49314
+     anisomax  154.787, beta max = 26.419 min  1.0298
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 21 ----------------------------------------
+  -- Solve : 
+          min -0.0288345  max 0.202822
+Compliance :1.12397-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.42872  max 1.5844
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.00698767------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 953 , h  min 0.00333859 , h max 0.105053
+     area =  0.45861 , M area = 435.036 , M area/( |Khat| nt) 1.05422
+     infiny-regularity:  min 0.0749773  max 12.584
+     anisomax  57.1281, beta max = 3.17867 min  0.391302
+  --  mesh:  Nb of Triangles =    953, Nb of Vertices 547
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00942097 , h max 0.452453
+     area =  0.458298 , M area = 4.48207 , M area/( |Khat| nt) 0.1953
+     infiny-regularity:  min 0.00297204  max 3.02326
+     anisomax  224.262, beta max = 26.5266 min  1.02507
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 22 ----------------------------------------
+  -- Solve : 
+          min -0.0285791  max 0.203145
+Compliance :1.12681-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.41991  max 1.55943
+We increase the step size
+Mesh moved
+Actual Step 0.0090755------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 897 , h  min 0.00383504 , h max 0.123751
+     area =  0.458836 , M area = 409.132 , M area/( |Khat| nt) 1.05334
+     infiny-regularity:  min 0.111159  max 6.23394
+     anisomax  38.768, beta max = 2.70726 min  0.602641
+  --  mesh:  Nb of Triangles =    897, Nb of Vertices 517
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00941655 , h max 0.452481
+     area =  0.458526 , M area = 4.43301 , M area/( |Khat| nt) 0.200737
+     infiny-regularity:  min 0.00446108  max 2.85442
+     anisomax  151.161, beta max = 26.5424 min  1.10504
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 23 ----------------------------------------
+  -- Solve : 
+          min -0.0295583  max 0.203208
+Compliance :1.12489-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.41053  max 1.54752
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.00605033------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 958 , h  min 0.0035608 , h max 0.103424
+     area =  0.458992 , M area = 430.777 , M area/( |Khat| nt) 1.03845
+     infiny-regularity:  min 0.113575  max 5.20827
+     anisomax  33.8217, beta max = 2.94603 min  0.621942
+  --  mesh:  Nb of Triangles =    958, Nb of Vertices 549
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00941119 , h max 0.452662
+     area =  0.458695 , M area = 4.4689 , M area/( |Khat| nt) 0.194726
+     infiny-regularity:  min 0.00358685  max 2.79254
+     anisomax  189.003, beta max = 26.613 min  1.12337
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 24 ----------------------------------------
+  -- Solve : 
+          min -0.0284094  max 0.202933
+Compliance :1.12047-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.35678  max 1.55049
+We increase the step size
+Mesh moved
+Actual Step 0.00806711------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 886 , h  min 0.00366431 , h max 0.142748
+     area =  0.459182 , M area = 401.978 , M area/( |Khat| nt) 1.04777
+     infiny-regularity:  min 0.179627  max 4.31645
+     anisomax  24.2024, beta max = 2.09576 min  0.744944
+  --  mesh:  Nb of Triangles =    886, Nb of Vertices 511
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00940932 , h max 0.452675
+     area =  0.458885 , M area = 4.43793 , M area/( |Khat| nt) 0.20096
+     infiny-regularity:  min 0.00474335  max 2.86095
+     anisomax  143.935, beta max = 26.6202 min  1.13575
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 25 ----------------------------------------
+  -- Solve : 
+          min -0.0287015  max 0.203227
+Compliance :1.12042-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.41906  max 1.55701
+We increase the step size
+Mesh moved
+Actual Step 0.0107561------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 920 , h  min 0.00282707 , h max 0.106328
+     area =  0.459444 , M area = 412.922 , M area/( |Khat| nt) 1.03652
+     infiny-regularity:  min 0.213137  max 5.22709
+     anisomax  17.5362, beta max = 1.74516 min  0.68456
+  --  mesh:  Nb of Triangles =    920, Nb of Vertices 529
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00940594 , h max 0.452644
+     area =  0.459145 , M area = 4.45185 , M area/( |Khat| nt) 0.20159
+     infiny-regularity:  min 0.00677801  max 2.90432
+     anisomax  101.264, beta max = 26.6132 min  1.13905
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 26 ----------------------------------------
+  -- Solve : 
+          min -0.0285484  max 0.202795
+Compliance :1.1202-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.4121  max 1.57014
+We increase the step size
+Mesh moved
+Actual Step 0.0143415------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 970 , h  min 0.00390408 , h max 0.116888
+     area =  0.459928 , M area = 441.306 , M area/( |Khat| nt) 1.05067
+     infiny-regularity:  min 0.213024  max 7.22251
+     anisomax  18.2424, beta max = 1.76633 min  0.511467
+  --  mesh:  Nb of Triangles =    970, Nb of Vertices 555
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00939332 , h max 0.452959
+     area =  0.459651 , M area = 4.44042 , M area/( |Khat| nt) 0.201073
+     infiny-regularity:  min 0.00594681  max 2.88414
+     anisomax  115.878, beta max = 26.7377 min  1.05855
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 27 ----------------------------------------
+  -- Solve : 
+          min -0.02885  max 0.20301
+Compliance :1.12459-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.46789  max 1.61564
+We increase the step size
+Mesh moved
+Actual Step 0.019122------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 947 , h  min 0.00386818 , h max 0.10322
+     area =  0.460177 , M area = 420.311 , M area/( |Khat| nt) 1.02499
+     infiny-regularity:  min 0.0596665  max 3.3571
+     anisomax  17.1206, beta max = 3.46426 min  0.738142
+  --  mesh:  Nb of Triangles =    947, Nb of Vertices 542
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00939403 , h max 0.45243
+     area =  0.459862 , M area = 4.45324 , M area/( |Khat| nt) 0.209884
+     infiny-regularity:  min 0.0115401  max 2.74498
+     anisomax  51.1393, beta max = 26.5712 min  0.983956
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 28 ----------------------------------------
+  -- Solve : 
+          min -0.0286981  max 0.202641
+Compliance :1.12781-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.40392  max 1.62704
+We increase the step size
+Mesh moved
+Actual Step 0.0254961------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 970 , h  min 0.00308009 , h max 0.114687
+     area =  0.460617 , M area = 429.349 , M area/( |Khat| nt) 1.02221
+     infiny-regularity:  min 0.283824  max 5.20919
+     anisomax  9.01815, beta max = 1.3781 min  0.567423
+  --  mesh:  Nb of Triangles =    970, Nb of Vertices 554
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00938221 , h max 0.452324
+     area =  0.460285 , M area = 4.4657 , M area/( |Khat| nt) 0.194587
+     infiny-regularity:  min 0.0116286  max 3.00328
+     anisomax  43.1185, beta max = 26.5734 min  1.11964
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 29 ----------------------------------------
+  -- Solve : 
+          min -0.0288854  max 0.201744
+Compliance :1.13599-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.40825  max 1.64617
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.0169974------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 924 , h  min 0.00383546 , h max 0.12925
+     area =  0.46023 , M area = 418.136 , M area/( |Khat| nt) 1.04507
+     infiny-regularity:  min 0.201776  max 3.56018
+     anisomax  6.82142, beta max = 1.22725 min  0.726803
+  --  mesh:  Nb of Triangles =    924, Nb of Vertices 529
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00939189 , h max 0.452092
+     area =  0.459887 , M area = 4.46513 , M area/( |Khat| nt) 0.210444
+     infiny-regularity:  min 0.0116244  max 2.96472
+     anisomax  43.9969, beta max = 26.4997 min  1.03426
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 30 ----------------------------------------
+  -- Solve : 
+          min -0.0289299  max 0.202813
+Compliance :1.13449-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.36619  max 1.60929
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.0113316------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 886 , h  min 0.00379481 , h max 0.127432
+     area =  0.460269 , M area = 398.707 , M area/( |Khat| nt) 1.03925
+     infiny-regularity:  min 0.169375  max 3.90123
+     anisomax  9.54221, beta max = 1.31361 min  0.708713
+  --  mesh:  Nb of Triangles =    886, Nb of Vertices 511
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00938798 , h max 0.452484
+     area =  0.459956 , M area = 4.42858 , M area/( |Khat| nt) 0.208722
+     infiny-regularity:  min 0.0108871  max 2.6877
+     anisomax  63.8622, beta max = 26.6008 min  1.02304
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 31 ----------------------------------------
+  -- Solve : 
+          min -0.0294833  max 0.202704
+Compliance :1.13442-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.44215  max 1.64208
+We increase the step size
+Mesh moved
+Actual Step 0.0151088------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 878 , h  min 0.00368433 , h max 0.125807
+     area =  0.460261 , M area = 399.949 , M area/( |Khat| nt) 1.05198
+     infiny-regularity:  min 0.206933  max 4.09762
+     anisomax  22.4286, beta max = 1.921 min  0.690833
+  --  mesh:  Nb of Triangles =    878, Nb of Vertices 508
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00938649 , h max 0.452729
+     area =  0.459967 , M area = 4.43608 , M area/( |Khat| nt) 0.193296
+     infiny-regularity:  min 0.0077217  max 2.59385
+     anisomax  90.3567, beta max = 26.6763 min  1.18782
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 32 ----------------------------------------
+  -- Solve : 
+          min -0.0285529  max 0.202046
+Compliance :1.12775-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.47328  max 1.65838
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.0100725------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 922 , h  min 0.00400448 , h max 0.111053
+     area =  0.46034 , M area = 414.806 , M area/( |Khat| nt) 1.039
+     infiny-regularity:  min 0.137938  max 3.27375
+     anisomax  33.1388, beta max = 2.3668 min  0.765497
+  --  mesh:  Nb of Triangles =    922, Nb of Vertices 530
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.0093848 , h max 0.452876
+     area =  0.460053 , M area = 4.47029 , M area/( |Khat| nt) 0.210688
+     infiny-regularity:  min 0.00644919  max 3.03143
+     anisomax  108.425, beta max = 26.7331 min  1.03723
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 33 ----------------------------------------
+  -- Solve : 
+          min -0.0286416  max 0.20254
+Compliance :1.13003-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.42523  max 1.6142
+We increase the step size
+Mesh moved
+Actual Step 0.01343------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 877 , h  min 0.00379838 , h max 0.13064
+     area =  0.460439 , M area = 393.563 , M area/( |Khat| nt) 1.03637
+     infiny-regularity:  min 0.0930272  max 3.73764
+     anisomax  36.2249, beta max = 3.24092 min  0.742302
+  --  mesh:  Nb of Triangles =    877, Nb of Vertices 508
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00938238 , h max 0.453104
+     area =  0.460169 , M area = 4.44667 , M area/( |Khat| nt) 0.201356
+     infiny-regularity:  min 0.00472193  max 2.94433
+     anisomax  149.309, beta max = 26.8209 min  1.07033
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 34 ----------------------------------------
+  -- Solve : 
+          min -0.0293262  max 0.202394
+Compliance :1.12525-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.45184  max 1.62884
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.00895335------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 957 , h  min 0.00366297 , h max 0.106925
+     area =  0.460555 , M area = 426.759 , M area/( |Khat| nt) 1.02984
+     infiny-regularity:  min 0.0814177  max 6.16533
+     anisomax  53.8832, beta max = 2.98642 min  0.575711
+  --  mesh:  Nb of Triangles =    957, Nb of Vertices 548
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00938011 , h max 0.453278
+     area =  0.460298 , M area = 4.45022 , M area/( |Khat| nt) 0.201516
+     infiny-regularity:  min 0.00359614  max 3.03767
+     anisomax  196.708, beta max = 26.8874 min  0.978038
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 35 ----------------------------------------
+  -- Solve : 
+          min -0.0286  max 0.202394
+Compliance :1.12212-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.42103  max 1.58603
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.00579875------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 907 , h  min 0.00334893 , h max 0.130291
+     area =  0.460669 , M area = 403.522 , M area/( |Khat| nt) 1.02745
+     infiny-regularity:  min 0.0649389  max 6.80808
+     anisomax  71.7394, beta max = 3.39562 min  0.631866
+  --  mesh:  Nb of Triangles =    907, Nb of Vertices 521
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00937802 , h max 0.453403
+     area =  0.460421 , M area = 4.43691 , M area/( |Khat| nt) 0.200914
+     infiny-regularity:  min 0.00301921  max 2.97344
+     anisomax  235.431, beta max = 26.9335 min  0.971568
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 36 ----------------------------------------
+  -- Solve : 
+          min -0.0285116  max 0.202198
+Compliance :1.11939-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.42055  max 1.54479
+We increase the step size
+Mesh moved
+Actual Step 0.00757961------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 902 , h  min 0.00372796 , h max 0.130372
+     area =  0.460754 , M area = 400.232 , M area/( |Khat| nt) 1.02472
+     infiny-regularity:  min 0.0273229  max 5.4036
+     anisomax  69.0565, beta max = 4.83825 min  0.764049
+  --  mesh:  Nb of Triangles =    902, Nb of Vertices 519
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00937593 , h max 0.453554
+     area =  0.460518 , M area = 4.48122 , M area/( |Khat| nt) 0.195263
+     infiny-regularity:  min 0.00220759  max 2.96789
+     anisomax  324.377, beta max = 26.99 min  1.16866
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 37 ----------------------------------------
+  -- Solve : 
+          min -0.0284375  max 0.202177
+Compliance :1.11398-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.39911  max 1.59604
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.00232491------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 896 , h  min 0.0031317 , h max 0.146862
+     area =  0.460801 , M area = 401.42 , M area/( |Khat| nt) 1.03464
+     infiny-regularity:  min 0.0517562  max 5.79596
+     anisomax  81.6964, beta max = 4.26239 min  0.687635
+  --  mesh:  Nb of Triangles =    896, Nb of Vertices 517
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00937471 , h max 0.453615
+     area =  0.46057 , M area = 4.42455 , M area/( |Khat| nt) 0.200354
+     infiny-regularity:  min 0.00185666  max 2.98294
+     anisomax  386.112, beta max = 28.357 min  1.0329
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 38 ----------------------------------------
+  -- Solve : 
+          min -0.0283711  max 0.202135
+Compliance :1.11433-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.47612  max 1.60823
+We increase the step size
+Mesh moved
+Actual Step 0.00309988------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 898 , h  min 0.00319515 , h max 0.115334
+     area =  0.46086 , M area = 399.283 , M area/( |Khat| nt) 1.02684
+     infiny-regularity:  min 0.0395089  max 6.15258
+     anisomax  109.212, beta max = 4.21903 min  0.605142
+  --  mesh:  Nb of Triangles =    898, Nb of Vertices 518
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00937267 , h max 0.453694
+     area =  0.460635 , M area = 4.4367 , M area/( |Khat| nt) 0.193323
+     infiny-regularity:  min 0.00139888  max 3.06726
+     anisomax  512.951, beta max = 32.6577 min  1.14402
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 39 ----------------------------------------
+  -- Solve : 
+          min -0.0284212  max 0.201975
+Compliance :1.1129-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.4467  max 1.57154
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.0017351------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 921 , h  min 0.00400465 , h max 0.122687
+     area =  0.46089 , M area = 412.637 , M area/( |Khat| nt) 1.03468
+     infiny-regularity:  min 0.0493175  max 6.51033
+     anisomax  60.5558, beta max = 5.1049 min  0.622727
+  --  mesh:  Nb of Triangles =    921, Nb of Vertices 530
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00937174 , h max 0.453734
+     area =  0.460668 , M area = 4.47281 , M area/( |Khat| nt) 0.202539
+     infiny-regularity:  min 0.00120235  max 2.95527
+     anisomax  597.476, beta max = 35.2054 min  1.02697
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 40 ----------------------------------------
+  -- Solve : 
+          min -0.0289832  max 0.202298
+Compliance :1.1148-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.40346  max 1.55183
+We increase the step size
+Mesh moved
+Actual Step 0.00219888------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 858 , h  min 0.00319856 , h max 0.130006
+     area =  0.46094 , M area = 380.103 , M area/( |Khat| nt) 1.02309
+     infiny-regularity:  min 0.0409217  max 3.73917
+     anisomax  73.1712, beta max = 5.60282 min  0.676857
+  --  mesh:  Nb of Triangles =    858, Nb of Vertices 498
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00937048 , h max 0.453787
+     area =  0.460721 , M area = 4.42325 , M area/( |Khat| nt) 0.192737
+     infiny-regularity:  min 0.00099711  max 3.01268
+     anisomax  721.801, beta max = 38.6216 min  1.07238
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 41 ----------------------------------------
+  -- Solve : 
+          min -0.0283115  max 0.202163
+Compliance :1.11278-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.46323  max 1.53959
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.00124428------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 925 , h  min 0.00375085 , h max 0.110248
+     area =  0.460963 , M area = 416.321 , M area/( |Khat| nt) 1.03941
+     infiny-regularity:  min 0.0323304  max 8.23659
+     anisomax  92.5521, beta max = 6.29309 min  0.570999
+  --  mesh:  Nb of Triangles =    925, Nb of Vertices 532
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00936953 , h max 0.453824
+     area =  0.460747 , M area = 4.46094 , M area/( |Khat| nt) 0.202002
+     infiny-regularity:  min 0.00078965  max 2.96393
+     anisomax  912.528, beta max = 43.3689 min  1.1567
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 42 ----------------------------------------
+  -- Solve : 
+          min -0.028443  max 0.202224
+Compliance :1.11154-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.50801  max 1.53174
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.000750619------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 881 , h  min 0.00326257 , h max 0.133314
+     area =  0.460978 , M area = 398.308 , M area/( |Khat| nt) 1.0441
+     infiny-regularity:  min 0.0263842  max 4.72654
+     anisomax  113.173, beta max = 6.9758 min  0.626344
+  --  mesh:  Nb of Triangles =    881, Nb of Vertices 510
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00936898 , h max 0.453849
+     area =  0.460765 , M area = 4.45223 , M area/( |Khat| nt) 0.201608
+     infiny-regularity:  min 0.000646525  max 2.96771
+     anisomax  1115.38, beta max = 47.9075 min  1.04673
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 43 ----------------------------------------
+  -- Solve : 
+          min -0.0282667  max 0.201956
+Compliance :1.11006-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.59154  max 1.49978
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.000467528------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 928 , h  min 0.00301486 , h max 0.141895
+     area =  0.460985 , M area = 410.932 , M area/( |Khat| nt) 1.02264
+     infiny-regularity:  min 0.0207652  max 5.68556
+     anisomax  144.055, beta max = 7.84353 min  0.564272
+  --  mesh:  Nb of Triangles =    928, Nb of Vertices 533
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00936867 , h max 0.453868
+     area =  0.460773 , M area = 4.41825 , M area/( |Khat| nt) 0.200069
+     infiny-regularity:  min 0.000508446  max 3.01965
+     anisomax  1419.06, beta max = 54.0027 min  0.991872
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 44 ----------------------------------------
+  -- Solve : 
+          min -0.0283079  max 0.202057
+Compliance :1.11057-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.60114  max 1.52081
+We increase the step size
+Mesh moved
+Actual Step 0.00062337------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 910 , h  min 0.00155125 , h max 0.125759
+     area =  0.460999 , M area = 401.669 , M area/( |Khat| nt) 1.01936
+     infiny-regularity:  min 0.016842  max 11.5277
+     anisomax  176.951, beta max = 8.70184 min  0.495404
+  --  mesh:  Nb of Triangles =    910, Nb of Vertices 524
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00936816 , h max 0.453887
+     area =  0.460788 , M area = 4.41814 , M area/( |Khat| nt) 0.200064
+     infiny-regularity:  min 0.000414294  max 3.03379
+     anisomax  1742.75, beta max = 59.8018 min  0.986583
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 45 ----------------------------------------
+  -- Solve : 
+          min -0.0282707  max 0.202073
+Compliance :1.11068-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.55608  max 1.51926
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.000376993------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 922 , h  min 0.00146797 , h max 0.12767
+     area =  0.461005 , M area = 402.504 , M area/( |Khat| nt) 1.00818
+     infiny-regularity:  min 0.014114  max 12.8191
+     anisomax  215.778, beta max = 9.37578 min  0.456771
+  --  mesh:  Nb of Triangles =    922, Nb of Vertices 529
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.0093679 , h max 0.453899
+     area =  0.460795 , M area = 4.41343 , M area/( |Khat| nt) 0.19985
+     infiny-regularity:  min 0.000339931  max 2.99254
+     anisomax  2124.8, beta max = 66.0052 min  0.973206
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 46 ----------------------------------------
+  -- Solve : 
+          min -0.0282601  max 0.202006
+Compliance :1.10911-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.44855  max 1.5472
+We increase the step size
+Mesh moved
+Actual Step 0.00048593------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 894 , h  min 0.00143145 , h max 0.13097
+     area =  0.461015 , M area = 403.102 , M area/( |Khat| nt) 1.0413
+     infiny-regularity:  min 0.0111681  max 13.2416
+     anisomax  267.841, beta max = 10.6868 min  0.448951
+  --  mesh:  Nb of Triangles =    894, Nb of Vertices 516
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00936758 , h max 0.453912
+     area =  0.460805 , M area = 4.46955 , M area/( |Khat| nt) 0.194755
+     infiny-regularity:  min 0.000273965  max 2.98082
+     anisomax  2637.36, beta max = 73.5096 min  1.05895
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 47 ----------------------------------------
+  -- Solve : 
+          min -0.0283509  max 0.201803
+Compliance :1.10843-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.49193  max 1.54408
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.000279431------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 912 , h  min 0.00259001 , h max 0.122785
+     area =  0.46102 , M area = 407.658 , M area/( |Khat| nt) 1.03229
+     infiny-regularity:  min 0.00857526  max 7.81765
+     anisomax  351.232, beta max = 12.0942 min  0.560818
+  --  mesh:  Nb of Triangles =    912, Nb of Vertices 526
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00936737 , h max 0.453922
+     area =  0.460811 , M area = 4.42867 , M area/( |Khat| nt) 0.200541
+     infiny-regularity:  min 0.000209001  max 3.03098
+     anisomax  3457.97, beta max = 84.1497 min  1.0682
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 48 ----------------------------------------
+  -- Solve : 
+          min -0.0282603  max 0.201961
+Compliance :1.10989-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.51112  max 1.54737
+We increase the step size
+Mesh moved
+Actual Step 0.000345145------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 897 , h  min 0.00136066 , h max 0.119646
+     area =  0.461029 , M area = 401.099 , M area/( |Khat| nt) 1.03266
+     infiny-regularity:  min 0.00598525  max 15.336
+     anisomax  498.306, beta max = 14.5861 min  0.399517
+  --  mesh:  Nb of Triangles =    897, Nb of Vertices 518
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.0093671 , h max 0.453933
+     area =  0.460821 , M area = 4.42513 , M area/( |Khat| nt) 0.20038
+     infiny-regularity:  min 0.000147374  max 3.0354
+     anisomax  4905.42, beta max = 100.194 min  0.998389
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 49 ----------------------------------------
+  -- Solve : 
+          min -0.0283361  max 0.201753
+Compliance :1.10803-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.57945  max 1.52171
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.000196862------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 888 , h  min 0.00271554 , h max 0.111169
+     area =  0.461032 , M area = 396.683 , M area/( |Khat| nt) 1.03164
+     infiny-regularity:  min 0.0046835  max 16.4167
+     anisomax  642.468, beta max = 16.3685 min  0.412462
+  --  mesh:  Nb of Triangles =    888, Nb of Vertices 514
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00936697 , h max 0.453939
+     area =  0.460825 , M area = 4.45829 , M area/( |Khat| nt) 0.210122
+     infiny-regularity:  min 0.000114335  max 2.97321
+     anisomax  6324.22, beta max = 113.742 min  0.977517
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 50 ----------------------------------------
+  -- Solve : 
+          min -0.0283152  max 0.202048
+Compliance :1.10906-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.63044  max 1.52817
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 0.000114018------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 889 , h  min 0.0027154 , h max 0.125732
+     area =  0.461035 , M area = 386.808 , M area/( |Khat| nt) 1.00483
+     infiny-regularity:  min 0.00409453  max 7.43745
+     anisomax  744.088, beta max = 17.3861 min  0.739987
+  --  mesh:  Nb of Triangles =    889, Nb of Vertices 515
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.0093669 , h max 0.453943
+     area =  0.460828 , M area = 4.46581 , M area/( |Khat| nt) 0.210476
+     infiny-regularity:  min 9.87336e-05  max 2.97632
+     anisomax  7324.55, beta max = 122.391 min  0.970077
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 51 ----------------------------------------
+  -- Solve : 
+          min -0.0284782  max 0.202225
+Compliance :1.10923-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.68551  max 1.49758
+We increase the step size
+Mesh moved
+Actual Step 0.00014223------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 871 , h  min 0.0020173 , h max 0.133216
+     area =  0.461038 , M area = 386.976 , M area/( |Khat| nt) 1.02604
+     infiny-regularity:  min 0.0028745  max 5.58707
+     anisomax  1037.52, beta max = 20.8136 min  0.517924
+  --  mesh:  Nb of Triangles =    871, Nb of Vertices 505
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.0093668 , h max 0.453947
+     area =  0.460831 , M area = 4.47197 , M area/( |Khat| nt) 0.210767
+     infiny-regularity:  min 7.08276e-05  max 3.00395
+     anisomax  10212, beta max = 144.492 min  0.96234
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 52 ----------------------------------------
+  -- Solve : 
+          min -0.028237  max 0.201935
+Compliance :1.10879-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.62661  max 1.52267
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 8.06671e-05------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 880 , h  min 0.00152472 , h max 0.132409
+     area =  0.461039 , M area = 392.617 , M area/( |Khat| nt) 1.03035
+     infiny-regularity:  min 0.00184519  max 11.0397
+     anisomax  1619.97, beta max = 26.2712 min  0.434397
+  --  mesh:  Nb of Triangles =    880, Nb of Vertices 510
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00936673 , h max 0.453951
+     area =  0.460833 , M area = 4.41554 , M area/( |Khat| nt) 0.192401
+     infiny-regularity:  min 4.53688e-05  max 3.00136
+     anisomax  15943.8, beta max = 180.53 min  1.12313
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 53 ----------------------------------------
+  -- Solve : 
+          min -0.0282683  max 0.201519
+Compliance :1.10599-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.5724  max 1.53716
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 4.61113e-05------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 917 , h  min 0.0027176 , h max 0.129068
+     area =  0.46104 , M area = 415.014 , M area/( |Khat| nt) 1.04518
+     infiny-regularity:  min 0.00146298  max 5.55713
+     anisomax  2042.32, beta max = 29.4967 min  0.502388
+  --  mesh:  Nb of Triangles =    917, Nb of Vertices 529
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.0093667 , h max 0.453953
+     area =  0.460835 , M area = 4.42118 , M area/( |Khat| nt) 0.192647
+     infiny-regularity:  min 3.59874e-05  max 3.04042
+     anisomax  20100.2, beta max = 202.693 min  1.10874
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 54 ----------------------------------------
+  -- Solve : 
+          min -0.0283613  max 0.202021
+Compliance :1.10921-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.44051  max 1.55609
+We increase the step size
+Mesh moved
+Actual Step 5.8281e-05------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 900 , h  min 0.00135646 , h max 0.114802
+     area =  0.461042 , M area = 414.378 , M area/( |Khat| nt) 1.0633
+     infiny-regularity:  min 0.00115278  max 14.9542
+     anisomax  2587.82, beta max = 33.2302 min  0.428048
+  --  mesh:  Nb of Triangles =    900, Nb of Vertices 520
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 53 , h  min 0.00936666 , h max 0.453954
+     area =  0.460836 , M area = 4.41878 , M area/( |Khat| nt) 0.192542
+     infiny-regularity:  min 2.84041e-05  max 2.98104
+     anisomax  25468.2, beta max = 228.152 min  1.15028
+  --  mesh:  Nb of Triangles =     53, Nb of Vertices 39
+Mesh adaptation done
+Iteration 55 ----------------------------------------
+  -- Solve : 
+          min -0.028225  max 0.201989
+Compliance :1.10816-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.43674  max 1.56235
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 2.94383e-05------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 964 , h  min 0.00271279 , h max 0.113031
+     area =  0.461042 , M area = 419.198 , M area/( |Khat| nt) 1.00425
+     infiny-regularity:  min 0.000912517  max 8.68127
+     anisomax  3267.92, beta max = 37.3478 min  0.467166
+  --  mesh:  Nb of Triangles =    964, Nb of Vertices 553
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00936664 , h max 0.453955
+     area =  0.460837 , M area = 4.47198 , M area/( |Khat| nt) 0.210767
+     infiny-regularity:  min 2.24942e-05  max 2.97184
+     anisomax  32160, beta max = 256.38 min  1.03036
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+Iteration 56 ----------------------------------------
+  -- Solve : 
+          min -0.0284043  max 0.202068
+Compliance :1.1081-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.45676  max 1.55206
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 1.81202e-05------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 841 , h  min 0.00271438 , h max 0.131285
+     area =  0.461043 , M area = 386.951 , M area/( |Khat| nt) 1.06258
+     infiny-regularity:  min 0.000768837  max 19.8075
+     anisomax  3886.23, beta max = 40.6874 min  0.408723
+  --  mesh:  Nb of Triangles =    841, Nb of Vertices 491
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00936663 , h max 0.453956
+     area =  0.460837 , M area = 4.48079 , M area/( |Khat| nt) 0.202901
+     infiny-regularity:  min 1.89152e-05  max 2.99311
+     anisomax  38245, beta max = 279.587 min  1.04593
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 57 ----------------------------------------
+  -- Solve : 
+          min -0.0286737  max 0.202295
+Compliance :1.1094-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.5695  max 1.53221
+We increase the step size
+Mesh moved
+Actual Step 2.41603e-05------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 892 , h  min 0.00271473 , h max 0.133524
+     area =  0.461043 , M area = 401.649 , M area/( |Khat| nt) 1.03988
+     infiny-regularity:  min 0.000562652  max 5.53582
+     anisomax  5414.6, beta max = 46.887 min  0.746509
+  --  mesh:  Nb of Triangles =    892, Nb of Vertices 515
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00936661 , h max 0.453957
+     area =  0.460838 , M area = 4.4908 , M area/( |Khat| nt) 0.203354
+     infiny-regularity:  min 1.35752e-05  max 2.98854
+     anisomax  53287.3, beta max = 330.001 min  1.00859
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 58 ----------------------------------------
+  -- Solve : 
+          min -0.0283468  max 0.201945
+Compliance :1.10795-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.60525  max 1.52256
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 1.29583e-05------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 906 , h  min 0.00271377 , h max 0.133331
+     area =  0.461043 , M area = 405.849 , M area/( |Khat| nt) 1.03451
+     infiny-regularity:  min 0.000457693  max 5.53686
+     anisomax  6651.88, beta max = 51.9776 min  0.624053
+  --  mesh:  Nb of Triangles =    906, Nb of Vertices 523
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.0093666 , h max 0.453957
+     area =  0.460838 , M area = 4.42461 , M area/( |Khat| nt) 0.200357
+     infiny-regularity:  min 1.10514e-05  max 2.99317
+     anisomax  65473.3, beta max = 365.804 min  0.975673
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 59 ----------------------------------------
+  -- Solve : 
+          min -0.0283793  max 0.202142
+Compliance :1.10849-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.55641  max 1.52478
+We increase the step size
+ problem reversed triangle  => actualstep= actualstep/2. 
+Mesh moved
+Actual Step 7.99112e-06------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 899 , h  min 0.00135928 , h max 0.11861
+     area =  0.461044 , M area = 405.311 , M area/( |Khat| nt) 1.04119
+     infiny-regularity:  min 0.000330582  max 13.8484
+     anisomax  9035.86, beta max = 62.0501 min  0.43881
+  --  mesh:  Nb of Triangles =    899, Nb of Vertices 519
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 51 , h  min 0.00936659 , h max 0.453957
+     area =  0.460838 , M area = 4.41688 , M area/( |Khat| nt) 0.200007
+     infiny-regularity:  min 8.1366e-06  max 3.04892
+     anisomax  88935.9, beta max = 426.331 min  0.975454
+  --  mesh:  Nb of Triangles =     51, Nb of Vertices 38
+Mesh adaptation done
+Iteration 60 ----------------------------------------
+  -- Solve : 
+          min -0.0282495  max 0.201921
+Compliance :1.10796-------------------------------------
+  number of required edges : 0
+  -- Solve : 
+          min -1.55248  max 1.54481
+We increase the step size
+Mesh moved
+Actual Step 1.01825e-05------------------------------------
+Mesh adaptation of Sh
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 912 , h  min 0.00135638 , h max 0.113418
+     area =  0.461044 , M area = 407.879 , M area/( |Khat| nt) 1.03285
+     infiny-regularity:  min 0.000227558  max 14.7348
+     anisomax  13114.8, beta max = 74.8206 min  0.423155
+  --  mesh:  Nb of Triangles =    912, Nb of Vertices 525
+Mesh adaptation of the coarse mesh Th
+  number of required edges : 0
+  -- adaptmesh Regulary:  Nb triangles 49 , h  min 0.00936659 , h max 0.453958
+     area =  0.460838 , M area = 4.46162 , M area/( |Khat| nt) 0.210279
+     infiny-regularity:  min 5.60341e-06  max 2.98763
+     anisomax  129098, beta max = 513.658 min  0.96212
+  --  mesh:  Nb of Triangles =     49, Nb of Vertices 37
+Mesh adaptation done
+  number of required edges : 0
+  number of required edges : 0
+  number of required edges : 0
+  number of required edges : 0
+  -- Solve : 
+          min -0.0283773  max 0.201908
+Compliance : 1.10757-------------------------------------
+times: compile 0.025567s, execution 11.6907s,  mpirank:0
+ ######## We forget of deleting   0 Nb pointer,   0Bytes  ,  mpirank 0, memory leak =107424
+ CodeAlloc : nb ptr  5325,  size :550608 mpirank: 0
+ WARNING NUMBER bad SearchMethod cas in 2d: 7726 int 3d 0(essai d2: 0 3d: 0 )
+Ok: Normal End
